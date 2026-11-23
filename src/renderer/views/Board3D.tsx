@@ -240,8 +240,12 @@ export default function Board3D() {
     if (!bb.isEmpty()) {
       const center = bb.getCenter(new THREE.Vector3()); const size = bb.getSize(new THREE.Vector3());
       c.controls.target.copy(center);
-      const dist = Math.max(size.x, size.z * 1.6) * 0.95;
-      c.camera.position.set(center.x, center.y + dist * 0.85, center.z + dist * 0.95);
+      // fit the whole bench in view: distance from the horizontal FOV, viewed from ~50° elevation
+      const aspect = c.camera.aspect || 1.6;
+      const hfov = 2 * Math.atan(Math.tan((c.camera.fov * Math.PI) / 360) * aspect);
+      const dist = Math.max((size.x / 2) / Math.tan(hfov / 2), (size.z / 2) / Math.tan((c.camera.fov * Math.PI) / 360)) * 1.02;
+      c.camera.position.set(center.x, center.y + dist * 0.77, center.z + dist * 0.64);
+      c.camera.lookAt(center);
     }
   }, [project.parts, project.wires]);
 

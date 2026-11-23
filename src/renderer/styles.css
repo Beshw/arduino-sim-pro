@@ -26,6 +26,7 @@ select:focus, input:focus { border-color: var(--accent); }
 .main { display: grid; grid-template-columns: 78px minmax(0, 1fr); min-height: 0; min-width: 0; direction: ltr; }
 .content { min-width: 0; min-height: 0; padding: 8px 8px 8px 0; }
 .app.ar .card, .app.ar .page { direction: rtl; }
+.app.ar .topbar, .app.ar .statusbar { direction: ltr; }
 /* the reference design keeps the workspace order left→right; text inside each item stays RTL */
 .app.ar .tabs > *, .app.ar .metrics > *, .app.ar .view-switch > *, .app.ar .statusbar > *, .app.ar .tb-actions > *, .app.ar .tb-title, .app.ar .tb-tools > * { direction: rtl; }
 
