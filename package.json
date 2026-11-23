@@ -1,0 +1,129 @@
+{
+  "name": "arduino-sim-pro",
+  "version": "1.0.0",
+  "description": "Arduino Simulator Pro - integrated Arduino Uno simulator (real AVR execution + circuit solver)",
+  "main": "dist/main/main.cjs",
+  "scripts": {
+    "build:main": "node scripts/build-main.mjs",
+    "build:renderer": "vite build --config vite.config.mts",
+    "build": "npm run build:main && npm run build:renderer",
+    "dev": "vite --config vite.config.mts",
+    "start": "electron .",
+    "test": "vitest run --config vitest.config.mts",
+    "typecheck": "tsc -p tsconfig.json",
+    "acceptance": "tsx scripts/acceptance-cli.ts",
+    "dist:win": "npm run build && PATH=\"$PWD/scripts/wine-shim:$PATH\" electron-builder --win nsis --x64 --publish never",
+    "dist:linux": "npm run build && electron-builder --linux dir --publish never"
+  },
+  "keywords": [],
+  "author": "Arduino Simulator Pro",
+  "license": "MIT",
+  "dependencies": {
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1",
+    "avr8js": "^0.21.1",
+    "monaco-editor": "^0.58.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.187.0"
+  },
+  "productName": "Arduino Simulator Pro",
+  "build": {
+    "appId": "pro.arduinosimulator.app",
+    "productName": "Arduino Simulator Pro",
+    "copyright": "Copyright © 2026 Arduino Simulator Pro",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "electronLanguages": [
+      "ar",
+      "en-US"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "asproj",
+        "name": "Arduino Simulator Pro Project",
+        "description": "Arduino Simulator Pro project",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "extraResources": [
+        {
+          "from": "build-resources/win",
+          "to": ".",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Arduino Simulator Pro",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "Arduino-Simulator-Pro-Setup-${version}-x64.${ext}",
+      "language": "1025",
+      "installerLanguages": [
+        "ar_SA",
+        "en_US"
+      ],
+      "multiLanguageInstaller": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.png",
+      "category": "Education",
+      "extraResources": [
+        {
+          "from": "build-resources/linux",
+          "to": ".",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "publish": null
+  }
+}

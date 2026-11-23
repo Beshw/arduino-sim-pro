@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Cross-building the NSIS installer on Linux: electron-builder runs the stub
+# installer under wine only to obtain the uninstaller. This shim extracts it
+# with electron-builder's own pure-JS reader (the same code it uses on macOS).
+set -euo pipefail
+INST="$1"
+case "$INST" in *.exe) ;; *) echo "wine-shim: unsupported call: $*" >&2; exit 1;; esac
+DIR=$(dirname "$INST"); BASE=$(basename "$INST" exe)
+OUT="$DIR/${BASE}__uninstaller.exe"
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
+node -e "require('$HERE/node_modules/app-builder-lib/out/targets/nsis/nsisUtil.js').UninstallerReader.exec(process.argv[1], process.argv[2]).then(()=>console.log('uninstaller extracted'),e=>{console.error(e);process.exit(1)})" "$INST" "$OUT"

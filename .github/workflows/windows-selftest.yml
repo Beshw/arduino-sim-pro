@@ -1,0 +1,44 @@
+# Installs the Windows installer on a real Windows runner, runs the packaged
+# app's headless acceptance suite (--self-test) and uploads the JSON reports.
+name: Windows self-test
+on:
+  workflow_dispatch:
+    inputs:
+      installer_url:
+        description: 'Direct URL of Arduino-Simulator-Pro-Setup-*.exe (e.g. a release asset)'
+        required: true
+  release:
+    types: [published]
+jobs:
+  selftest:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Download installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $url = "${{ github.event.inputs.installer_url }}"
+          if (-not $url) { $url = (gh release view "${{ github.event.release.tag_name }}" --repo "${{ github.repository }}" --json assets -q '.assets[] | select(.name | endswith(".exe")) | .url') }
+          Invoke-WebRequest -Uri $url -OutFile setup.exe
+          (Get-FileHash setup.exe -Algorithm SHA256).Hash
+      - name: Silent install (per-user)
+        shell: pwsh
+        run: |
+          Start-Process -FilePath .\setup.exe -ArgumentList '/S' -Wait
+          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Arduino Simulator Pro.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Installed executable not found' }
+          "APP_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Run packaged acceptance suite
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP\asp-reports"
+          $p = Start-Process -FilePath $env:APP_EXE -ArgumentList '--self-test', $out -Wait -PassThru
+          Get-Content "$out\summary.json"
+          if ($p.ExitCode -ne 0) { throw "self-test failed with exit code $($p.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-selftest-reports
+          path: ${{ runner.temp }}/asp-reports
