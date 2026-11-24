@@ -29,6 +29,8 @@ export function bodyBox(type: string): { x: number; y: number; w: number; h: num
     case 'switch': return { x: -6, y: -18, w: 32, h: 20 };
     case 'potentiometer': return { x: -6, y: -34, w: 32, h: 36 };
     case 'ldr': return { x: -3, y: -22, w: 16, h: 24 };
+    case 'fsr': return { x: -8, y: -42, w: 26, h: 44 };
+    case 'stepper': return { x: -6, y: -96, w: 64, h: 98 };
     case 'ntc': return { x: -3, y: -20, w: 16, h: 22 };
     case 'tmp36': return { x: -2, y: -20, w: 24, h: 22 };
     case 'dht11': return { x: -6, y: -46, w: 32, h: 48 };
@@ -317,6 +319,43 @@ export function PartSvg({ part, live, h, onReset }: { part: PartInstance; live: 
           <circle cx={5} cy={-14} r={7.5} fill="#d9902f" stroke="#8a5717" />
           <path d="M0 -17 h3 v3 h4 v-3 h3 M0 -11 h3 v-3 M7 -14 v3 h3" stroke="#5a2f08" strokeWidth={1} fill="none" />
           <text x={5} y={-24} fontSize={5.5} textAnchor="middle" fill="#9fb4cc">{lux >= 1000 ? (lux / 1000).toFixed(1) + 'k' : Math.round(lux)} lx</text>
+        </g>
+      );
+    }
+    case 'fsr': {
+      const f = Number(p.force);
+      const k = Math.min(1, f / 1500);
+      return (
+        <g onWheel={(e) => { if (!h.interactive) return; e.stopPropagation(); h.onPress?.('force', Math.max(0, Math.min(2000, Math.round(f + (e.deltaY < 0 ? 50 : -50))))); }}>
+          <Leg x={0} y2={-8} /><Leg x={10} y2={-8} />
+          <rect x={-1} y={-14} width={12} height={6} fill="#2a2d33" />
+          <circle cx={5} cy={-26} r={12} fill="#1f2226" stroke="#0d0f12" />
+          <circle cx={5} cy={-26} r={8.5} fill={`rgba(47,155,255,${0.15 + 0.6 * k})`} stroke="#3a3f47" />
+          <path d="M-1 -26 h12 M5 -32 v12" stroke="#596270" strokeWidth={0.6} />
+          <text x={5} y={-40} fontSize={5.5} textAnchor="middle" fill="#9fb4cc">{f} g</text>
+        </g>
+      );
+    }
+    case 'stepper': {
+      const ang = Number(live?.angle ?? 0);
+      const coils: boolean[] = Array.isArray(live?.coils) ? live!.coils : [false, false, false, false];
+      return (
+        <g>
+          {/* ULN2003 driver board */}
+          <rect x={-6} y={-30} width={64} height={24} rx={2} fill="#1f6b3a" stroke="#0f3d21" />
+          <rect x={14} y={-26} width={22} height={9} rx={1} fill="#16181b" />
+          <text x={25} y={-19.5} fontSize={4.2} textAnchor="middle" fill="#c9ced6">ULN2003</text>
+          {coils.map((on, i) => <g key={i}><circle cx={0 + i * 6} cy={-12} r={2} fill={on ? '#ff4040' : '#4a1f1f'} />{on && <circle cx={0 + i * 6} cy={-12} r={4} fill="rgba(255,64,64,0.3)" />}</g>)}
+          {['IN1', 'IN2', 'IN3', 'IN4', '+', '−'].map((l, i) => <text key={l} x={i * 10} y={-2} fontSize={3.6} textAnchor="middle" fill="#cfe9d8">{l}</text>)}
+          {/* motor */}
+          <circle cx={26} cy={-64} r={26} fill="#c7ccd4" stroke="#7b8490" />
+          <circle cx={26} cy={-64} r={20} fill="#dfe3e8" />
+          <rect x={4} y={-40} width={44} height={8} rx={2} fill="#2f6fd0" />
+          <g transform={`rotate(${ang} 26 -64)`}>
+            <rect x={23.5} y={-82} width={5} height={18} rx={2} fill="#ffb000" stroke="#a36c00" />
+            <circle cx={26} cy={-64} r={4} fill="#f4f6f8" stroke="#9aa3af" />
+          </g>
+          <text x={26} y={-93} fontSize={6} textAnchor="middle" fill="#9fb4cc">{(((ang % 360) + 360) % 360).toFixed(1)}°</text>
         </g>
       );
     }

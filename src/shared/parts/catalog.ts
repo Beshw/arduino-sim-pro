@@ -142,6 +142,12 @@ export const PARTS: PartDef[] = [
     props: [{ key: 'lux', label: { ar: 'شدة الإضاءة', en: 'Illuminance' }, type: 'number', default: 300, unit: 'lux', min: 0.1, max: 100000, live: true }],
   },
   {
+    type: 'fsr', name: { ar: 'حساس القوة FSR', en: 'Force sensor (FSR)' }, category: 'sensor', w: 10, h: 10,
+    pins: [{ id: 'a', label: '1', x: 0, y: 0 }, { id: 'b', label: '2', x: 10, y: 0 }],
+    props: [{ key: 'force', label: { ar: 'قوة الضغط', en: 'Force' }, type: 'number', default: 0, unit: 'g', min: 0, max: 2000, live: true }],
+    description: { ar: 'مقاومة تقل كلما زاد الضغط: مفتوحة تقريباً بلا ضغط، ونحو 2.5kΩ عند 1kg.', en: 'Resistance falls with force: ~open with no touch, ~2.5 kΩ at 1 kg.' },
+  },
+  {
     type: 'ntc', name: { ar: 'ثرمستور NTC', en: 'NTC thermistor' }, category: 'sensor', w: 10, h: 10,
     pins: [{ id: 'a', label: '1', x: 0, y: 0 }, { id: 'b', label: '2', x: 10, y: 0 }],
     props: [
@@ -177,6 +183,12 @@ export const PARTS: PartDef[] = [
     type: 'servo', name: { ar: 'محرك سيرفو', en: 'Servo motor' }, category: 'actuator', w: 20, h: 10,
     pins: [{ id: 'gnd', label: 'GND', x: 0, y: 0 }, { id: 'vcc', label: '5V', x: 10, y: 0 }, { id: 'sig', label: 'SIG', x: 20, y: 0 }],
     props: [],
+  },
+  {
+    type: 'stepper', name: { ar: 'محرك خطوي 28BYJ-48 مع ULN2003', en: 'Stepper 28BYJ-48 + ULN2003' }, category: 'actuator', w: 50, h: 10,
+    pins: ['IN1', 'IN2', 'IN3', 'IN4', 'VCC', 'GND'].map((l, i) => ({ id: l, label: l, x: i * 10, y: 0 })),
+    props: [],
+    description: { ar: '2048 خطوة كاملة لكل دورة (4096 نصف خطوة). كل مدخل يشغّل ملفاً عبر ULN2003.', en: '2048 full steps per turn (4096 half steps). Each input energises one coil through the ULN2003.' },
   },
   {
     type: 'dc_motor', name: { ar: 'محرك DC', en: 'DC motor' }, category: 'actuator', w: 10, h: 10,

@@ -15,7 +15,7 @@ import type { SolveResult, ElN } from './circuit/mna';
 import { checkTopology, CircuitIssue } from './circuit/netlist';
 import { UNO_ANALOG, UNO_DIGITAL } from './parts/catalog';
 import type { Project } from './project';
-import { BuzzerCtl, DeviceContext, DeviceController, Dht11Ctl, HcSr04Ctl, Hd44780, Hc595, I2cLcd, ServoCtl } from './devices';
+import { BuzzerCtl, DeviceContext, DeviceController, Dht11Ctl, HcSr04Ctl, Hd44780, Hc595, I2cLcd, ServoCtl, StepperCtl } from './devices';
 
 export interface GpioEvent { t: number; pin: string; value: 0 | 1 } // t in seconds
 export interface ProbeSample { t: number; v: number }
@@ -89,7 +89,7 @@ export class CoSimulation {
     for (const p of project.parts) this.props.set(p.id, { ...p.props });
     for (const p of project.parts) {
       const ctl = p.type === 'lcd1602' ? new Hd44780(p.id) : p.type === 'servo' ? new ServoCtl(p.id) : p.type === 'buzzer' ? new BuzzerCtl(p.id)
-        : p.type === 'dht11' ? new Dht11Ctl(p.id) : p.type === 'hcsr04' ? new HcSr04Ctl(p.id) : p.type === 'lcd1602_i2c' ? new I2cLcd(p.id) : p.type === 'hc595' ? new Hc595(p.id) : null;
+        : p.type === 'dht11' ? new Dht11Ctl(p.id) : p.type === 'hcsr04' ? new HcSr04Ctl(p.id) : p.type === 'lcd1602_i2c' ? new I2cLcd(p.id) : p.type === 'hc595' ? new Hc595(p.id) : p.type === 'stepper' ? new StepperCtl(p.id) : null;
       if (ctl) { this.devices.push(ctl); this.devMap.set(p.id, ctl); this.applyDeviceProps(p.id); }
     }
     this.attachI2cBus();

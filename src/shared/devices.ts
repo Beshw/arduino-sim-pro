@@ -170,6 +170,44 @@ export class Hc595 implements DeviceController {
   }
 }
 
+// ------------------------- 28BYJ-48 stepper + ULN2003 -------------------------
+/**
+ * The coil pattern on IN1..IN4 is mapped onto the 8-state half-step cycle
+ * (1000,1100,0100,0110,0010,0011,0001,1001). Each transition to a
+ * neighbouring state moves the rotor by ±1 half step (4096 per output turn).
+ * Patterns that are not part of the cycle (3 coils, opposite coils) hold the
+ * rotor where it is, exactly like the real motor would stall.
+ */
+const HALF_STEPS = [0b1000, 0b1100, 0b0100, 0b0110, 0b0010, 0b0011, 0b0001, 0b1001];
+export class StepperCtl implements DeviceController {
+  halfSteps = 0; phase = -1; coils = 0; powered = false; private ctx: DeviceContext | null = null; private lastR = -1;
+  constructor(public partId: string) {}
+  observe(ctx: DeviceContext) {
+    this.ctx = ctx;
+    const g = ctx.volt(`${this.partId}.GND`);
+    this.powered = ctx.volt(`${this.partId}.VCC`) - g > 4.0;
+    let pat = 0;
+    ['IN1', 'IN2', 'IN3', 'IN4'].forEach((k, i) => { if (ctx.volt(`${this.partId}.${k}`) - g > 2.5) pat |= 8 >> i; });
+    this.coils = pat;
+    const idx = HALF_STEPS.indexOf(pat);
+    if (this.powered && idx >= 0) {
+      if (this.phase >= 0) {
+        const d = (idx - this.phase + 8) % 8;
+        if (d >= 1 && d <= 3) this.halfSteps += d; else if (d >= 5) this.halfSteps -= 8 - d;
+      }
+      this.phase = idx;
+    }
+    // coil current: ≈50 Ω per energised coil
+    const n = [8, 4, 2, 1].filter((b) => pat & b).length;
+    const r = this.powered && n ? 50 / n : 1e6;
+    if (r !== this.lastR) { this.lastR = r; const el: any = ctx.element(`${this.partId}:coils`); if (el) { el.r = r; ctx.after(1e-8, () => ctx.resolve()); } }
+  }
+  outputs() {
+    const angle = (this.halfSteps * 360) / 4096;
+    return { powered: this.powered, steps: this.halfSteps / 2, halfSteps: this.halfSteps, angle, angleMod: ((angle % 360) + 360) % 360, coils: [8, 4, 2, 1].map((b) => !!(this.coils & b)) };
+  }
+}
+
 // ------------------------------- Servo -------------------------------
 export class ServoCtl implements DeviceController {
   private high = false; private rise = 0; angle = 90; pulseUs = 0; lastPulse = -1;

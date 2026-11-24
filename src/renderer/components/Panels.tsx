@@ -29,7 +29,7 @@ export function TopBar() {
         <button className="icon-btn ghost" onClick={() => setState((s) => ({ page: s.page === 'home' ? 'projects' : 'home' }))} title="Menu"><Icon name="menu" size={22} /></button>
         <Logo size={34} />
         <div className="tb-title">
-          <div className="tb-name">Arduino Simulator Pro <span className="ver">v1.1</span></div>
+          <div className="tb-name">Arduino Simulator Pro <span className="ver">v1.2</span></div>
           <div className="tb-sub">{t('appSub')}</div>
         </div>
       </div>
@@ -217,10 +217,11 @@ export function useCards(): Card[] {
       case 'hcsr04': cards.push({ icon: 'wave', title: ar ? 'المسافة' : 'Distance', value: String(part.props.distance), unit: 'cm', sub: `${live?.pings ?? 0} ping`, color: '#17c3d6' }); break;
       case 'dc_motor': cards.push({ icon: 'refresh', title: ar ? 'سرعة المحرك' : 'Motor speed', value: live ? Math.round(Number(live.rpm)).toString() : '—', unit: 'rpm', sub: live ? `${Number(live.voltage).toFixed(2)} V` : '—', pct: live ? Math.min(100, Math.abs(Number(live.rpm)) / 60) : 0, color: '#ff7a00' }); break;
       case 'lcd1602': case 'lcd1602_i2c': cards.push({ icon: 'grid', title: 'LCD 16x2', value: live?.displayOn ? (live.lines?.[0] ?? '').trim().slice(0, 10) || '…' : (ar ? 'مطفأة' : 'Off'), sub: live?.displayOn ? (live.lines?.[1] ?? '').trim().slice(0, 16) : '', color: '#2fd36b' }); break;
-      case 'ldr': case 'ntc': case 'tmp36': {
+      case 'stepper': cards.push({ icon: 'refresh', title: ar ? 'زاوية المحرك الخطوي' : 'Stepper angle', value: live ? (((Number(live.angle) % 360) + 360) % 360).toFixed(1) : '—', unit: '°', sub: live ? `${Math.round(Number(live.steps))} ${ar ? 'خطوة' : 'steps'}` : '—', pct: live ? ((((Number(live.angle) % 360) + 360) % 360) / 360) * 100 : 0, color: '#ffb000' }); break;
+      case 'ldr': case 'ntc': case 'tmp36': case 'fsr': {
         const pin = pinOf(part.id, ['a', 'b', 'vout']);
         const v = pin && snap ? snap.pins[pin]?.voltage ?? 0 : 0;
-        cards.push({ icon: part.type === 'ldr' ? 'sun' : 'thermo', title: PART_MAP[part.type].name[lang], value: snap && pin ? String(Math.round((v / 5) * 1023)) : '—', unit: '/1023', sub: part.type === 'ldr' ? `${part.props.lux} lux` : `${part.props.temperature} °C`, pct: (v / 5) * 100, color: '#ffd21f' });
+        cards.push({ icon: part.type === 'ldr' ? 'sun' : 'thermo', title: PART_MAP[part.type].name[lang], value: snap && pin ? String(Math.round((v / 5) * 1023)) : '—', unit: '/1023', sub: part.type === 'ldr' ? `${part.props.lux} lux` : part.type === 'fsr' ? `${part.props.force} g` : `${part.props.temperature} °C`, pct: (v / 5) * 100, color: '#ffd21f' });
         break;
       }
     }

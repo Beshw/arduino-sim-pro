@@ -166,6 +166,10 @@ function makeRuntime(part: PartInstance, c: Circuit, n: (pin: string) => number,
       const r = c.add({ kind: 'R', name: id, a: n('a'), b: n('b'), r: 10000 }) as ElR;
       return { part, apply: (p) => { r.r = ldrResistance(num(p, 'lux')); }, read: (res) => ({ resistance: r.r, current: res.current.get(id) ?? 0 }) };
     }
+    case 'fsr': {
+      const r = c.add({ kind: 'R', name: id, a: n('a'), b: n('b'), r: 1e7 }) as ElR;
+      return { part, apply: (p) => { r.r = fsrResistance(num(p, 'force')); }, read: (res) => ({ resistance: r.r, current: res.current.get(id) ?? 0 }) };
+    }
     case 'ntc': {
       const r = c.add({ kind: 'R', name: id, a: n('a'), b: n('b'), r: 10000 }) as ElR;
       return { part, apply: (p) => { r.r = ntcResistance(num(p, 'temperature'), num(p, 'r25'), num(p, 'beta')); }, read: () => ({ resistance: r.r }) };
@@ -205,6 +209,12 @@ function makeRuntime(part: PartInstance, c: Circuit, n: (pin: string) => number,
     case 'buzzer': {
       c.add({ kind: 'R', name: id, a: n('pos'), b: n('neg'), r: 1000 });
       return { part, apply: () => {}, read: (res) => ({ current: res.current.get(id) ?? 0, voltage: res.v[n('pos')] - res.v[n('neg')] }) };
+    }
+    case 'stepper': {
+      // ULN2003 inputs: ~2.7 kΩ base resistor + Vbe; coils (~50 Ω @5 V) switched to GND
+      for (const k of ['IN1', 'IN2', 'IN3', 'IN4']) c.add({ kind: 'R', name: `${id}:in_${k}`, a: n(k), b: n('GND'), r: 3400 });
+      c.add({ kind: 'R', name: `${id}:coils`, a: n('VCC'), b: n('GND'), r: 1e6 }); // set by the StepperCtl device (≈50 Ω per energised coil)
+      return { part, apply: () => {}, read: (res) => ({ supply: res.v[n('VCC')] - res.v[n('GND')], coilCurrent: res.current.get(`${id}:coils`) ?? 0 }) };
     }
     case 'servo': {
       c.add({ kind: 'R', name: `${id}:pwr`, a: n('vcc'), b: n('gnd'), r: 500 });
@@ -267,6 +277,11 @@ function makeRuntime(part: PartInstance, c: Circuit, n: (pin: string) => number,
   return null;
 }
 
+/** FSR-402-like: conductance roughly proportional to force; ~10 MΩ untouched, ~2.5 kΩ at 1 kg */
+export function fsrResistance(grams: number) {
+  const g = Math.max(0, Number(grams) || 0);
+  return 1 / (g * 4e-7 + 1e-7);
+}
 export function ldrResistance(lux: number) {
   return Math.min(2e6, Math.max(100, 15000 * Math.pow(Math.max(lux, 0.01) / 10, -0.75)));
 }

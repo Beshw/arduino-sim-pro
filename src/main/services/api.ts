@@ -17,7 +17,7 @@ import { checkTopology } from '../../shared/circuit/netlist';
 import { generateSpice } from '../../shared/spice/spice';
 import { exportVcd, importVcd, parseGpioCsv, pinMetrics, toGpioCsv, validateBlink, Edge } from '../../shared/signals/signals';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 export const APP_ID = 'arduino-simulator-pro';
 
 const sha = (s: string | Buffer) => crypto.createHash('sha256').update(s).digest('hex');

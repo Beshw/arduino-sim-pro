@@ -67,33 +67,7 @@ export function LibraryPage() {
   );
 }
 
-export function LessonsPage() {
-  const lang = useStore((s) => s.lang);
-  const levels = [1, 2, 3] as const;
-  const names = { 1: { ar: 'مبتدئ', en: 'Beginner' }, 2: { ar: 'متوسط', en: 'Intermediate' }, 3: { ar: 'متقدم', en: 'Advanced' } };
-  return (
-    <div className="page">
-      <div className="page-h"><h2><Icon name="cap" /> {lang === 'ar' ? 'الدروس التعليمية' : 'Lessons'}</h2></div>
-      {levels.map((lv) => (
-        <section key={lv} className="cat">
-          <h3>{names[lv][lang]}</h3>
-          <div className="lesson-grid">
-            {EXAMPLES.filter((e) => e.level === lv).map((ex, i) => (
-              <div key={ex.id} className="lesson">
-                <div className="lesson-n">{i + 1}</div>
-                <div className="lesson-b"><b>{ex.title[lang]}</b><p>{ex.description[lang]}</p></div>
-                <div className="lesson-a">
-                  <button className="btn sm" onClick={() => { A.loadExample(ex.id); A.go('home'); }}><Icon name="folder" size={14} /> {lang === 'ar' ? 'فتح' : 'Open'}</button>
-                  <button className="btn sm run" onClick={() => { A.loadExample(ex.id); A.go('home'); A.runSimulation(); }}><Icon name="play" size={14} /> {lang === 'ar' ? 'تشغيل' : 'Run'}</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
+export { LessonsPage } from './Course';
 
 export function ProjectsPage() {
   const t = useT();
@@ -298,7 +272,7 @@ export function SettingsPage() {
         <label className="insp-field"><span>{lang === 'ar' ? 'واجهة HTTP المحلية (127.0.0.1)' : 'Local HTTP API (127.0.0.1)'}</span><select value={settings.httpApi === false ? 'off' : 'on'} onChange={(e) => save({ httpApi: e.target.value === 'on' })}><option value="on">{lang === 'ar' ? 'مفعّلة' : 'On'}</option><option value="off">{lang === 'ar' ? 'معطّلة (بعد إعادة التشغيل)' : 'Off (after restart)'}</option></select></label>
       </div>
       <div className="card about">
-        <h3>Arduino Simulator Pro 1.0</h3>
+        <h3>Arduino Simulator Pro 1.2</h3>
         <p className="muted">{lang === 'ar' ? 'محرك المعالج: avr8js (تنفيذ تعليمات ATmega328P الحقيقية). محرك الدوائر: تحليل العقد المعدّل (MNA) مع نيوتن-رافسون وأويلر الخلفي. المترجم: avr-gcc 14 + ArduinoCore-avr 1.8.6. التحقق المتقاطع: ngspice وsimavr.' : 'CPU: avr8js (ATmega328P instruction-accurate). Circuit: MNA + Newton-Raphson + backward Euler. Compiler: avr-gcc 14 + ArduinoCore-avr 1.8.6. Cross-checks: ngspice, simavr.'}</p>
         <p className="muted small">{lang === 'ar' ? 'Arduino علامة تجارية لأصحابها؛ هذا البرنامج مستقل وغير تابع لهم.' : 'Arduino is a trademark of its owners; this program is independent and not affiliated.'}</p>
       </div>

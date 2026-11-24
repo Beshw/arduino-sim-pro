@@ -59,7 +59,7 @@ function uniqueId(prefix: string, p: Project) {
   while (ids.has(`${prefix}${i}`)) i++;
   return `${prefix}${i}`;
 }
-const PREFIX: Record<string, string> = { resistor: 'R', led: 'LED', rgb_led: 'RGB', button: 'BTN', switch: 'SW', potentiometer: 'POT', ldr: 'LDR', ntc: 'NTC', tmp36: 'TMP', dht11: 'DHT', hcsr04: 'US', buzzer: 'BZ', servo: 'SERVO', dc_motor: 'M', lcd1602: 'LCD', lcd1602_i2c: 'LCD', hc595: 'U', seven_segment: 'SEG', capacitor: 'C', inductor: 'L', diode: 'D', npn: 'Q', dc_supply: 'V', breadboard: 'bb', uno: 'uno' };
+const PREFIX: Record<string, string> = { resistor: 'R', led: 'LED', rgb_led: 'RGB', button: 'BTN', switch: 'SW', potentiometer: 'POT', ldr: 'LDR', ntc: 'NTC', tmp36: 'TMP', dht11: 'DHT', hcsr04: 'US', buzzer: 'BZ', servo: 'SERVO', dc_motor: 'M', lcd1602: 'LCD', lcd1602_i2c: 'LCD', hc595: 'U', fsr: 'FSR', stepper: 'ST', seven_segment: 'SEG', capacitor: 'C', inductor: 'L', diode: 'D', npn: 'Q', dc_supply: 'V', breadboard: 'bb', uno: 'uno' };
 
 export function addPart(type: string, x: number, y: number): string | null {
   const p = getState().project;
@@ -231,6 +231,29 @@ function startWorker(autorun: boolean) {
   setState({ serial: [], serialPartial: '', snap: null, simState: autorun ? 'running' : 'paused', simError: null });
   send({ type: 'speed', value: s.speed });
   send({ type: 'load', project: JSON.parse(JSON.stringify(s.project)), hex: s.compile?.hex ?? null, probes: probesFor(s.project), autorun });
+  if (autorun && s.lessonActive) setLessonProgress(s.lessonActive, { ran: true });
+}
+
+/* ---------- guided course progress ---------- */
+export function setLessonProgress(id: string, patch: { quiz?: boolean; ran?: boolean }) {
+  const cur = getState().lessonProgress;
+  const next = { ...cur, [id]: { ...(cur[id] ?? {}), ...patch } };
+  setState({ lessonProgress: next });
+  try { localStorage.setItem('asp-lessons', JSON.stringify(next)); } catch { /* ignore */ }
+  api('setSettings', { lessonProgress: next }).catch(() => undefined);
+}
+export function resetLessonProgress() {
+  setState({ lessonProgress: {} });
+  try { localStorage.removeItem('asp-lessons'); } catch { /* ignore */ }
+  api('setSettings', { lessonProgress: {} }).catch(() => undefined);
+}
+export async function loadLessonProgress() {
+  try { const st = await api('getSettings'); if (st?.lessonProgress && typeof st.lessonProgress === 'object') setState({ lessonProgress: { ...st.lessonProgress, ...getState().lessonProgress } }); } catch { /* ignore */ }
+}
+export function openLesson(lessonId: string, exampleId: string, run = false) {
+  loadExample(exampleId);
+  setState({ lessonActive: lessonId, page: 'home' });
+  if (run) runSimulation();
 }
 export function pauseSimulation() { if (getState().simState === 'running') send({ type: 'pause' }); else if (getState().simState === 'paused') runSimulation(); }
 export function stopSimulation() { send({ type: 'stop' }); setState({ simState: 'idle', snap: null, rt: 0 }); }
@@ -295,7 +318,7 @@ setInterval(() => { const s = getState(); if (s.dirty) backup(JSON.stringify(s.p
 export function loadProject(p: Project, filePath: string | null = null) {
   stopSimulation();
   resetTraces();
-  setState({ project: p, filePath, dirty: false, past: [], future: [], selection: null, compile: null, serial: [], snap: null, simState: 'idle', simError: null, savedAt: filePath ? Date.now() : null });
+  setState({ project: p, filePath, dirty: false, past: [], future: [], selection: null, compile: null, serial: [], snap: null, simState: 'idle', simError: null, savedAt: filePath ? Date.now() : null, lessonActive: null });
   scheduleAutosave();
 }
 export function loadExample(id: string, run = false) {

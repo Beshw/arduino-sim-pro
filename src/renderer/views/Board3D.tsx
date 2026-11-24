@@ -136,6 +136,15 @@ function buildScene(project: Project, scene: THREE.Group, dyn: Dyn[]) {
         dyn.push({ update: (snap) => { const a = Number(snap?.parts?.[part.id]?.angle ?? 90); hg.rotation.y = -((a - 90) * Math.PI) / 180; } });
         break;
       }
+      case 'stepper': {
+        const pcb = box(64 * S, 0.2, 24 * S, mat(0x1f6b3a)); g.add(at(pcb, 26, 1.0, -18));
+        const body = cyl(2.6, 1.9, mat(0xc7ccd4, { metalness: 0.6, roughness: 0.35 })); g.add(at(body, 26, 2.0, -64));
+        const shaft = cyl(0.35, 0.8, mat(0xffb000)); const sg = new THREE.Group(); sg.add(shaft);
+        const flag = box(0.5, 0.15, 2.2, mat(0xffb000)); flag.position.z = -1.0; flag.position.y = 0.3; sg.add(flag);
+        g.add(at(sg, 26, 3.3, -64));
+        dyn.push({ update: (snap) => { const a = Number(snap?.parts?.[part.id]?.angle ?? 0); sg.rotation.y = -(a * Math.PI) / 180; } });
+        break;
+      }
       case 'dc_motor': {
         const body = cyl(1.5, 3, mat(0xc7ccd4, { metalness: 0.7, roughness: 0.3 })); body.rotation.x = Math.PI / 2; g.add(at(body, 5, 1.8, -20));
         const shaft = cyl(0.12, 1.2, mat(0x888888)); shaft.rotation.x = Math.PI / 2; g.add(at(shaft, 5, 1.8, -36));
@@ -164,10 +173,10 @@ function buildScene(project: Project, scene: THREE.Group, dyn: Dyn[]) {
       }
       default: {
         // generic component block (sensors, ICs, supplies)
-        const colors: Record<string, number> = { dht11: 0x2f7fd6, hcsr04: 0x1a4f9c, tmp36: 0x1c1e22, npn: 0x1c1e22, ntc: 0x2b6fd8, ldr: 0xd9902f, capacitor: 0x2747a6, diode: 0x1c1e22, inductor: 0x3f8f4d, switch: 0x1f2a3a, dc_supply: 0x1e2530, seven_segment: 0x202328, hc595: 0x1c1e22 };
+        const colors: Record<string, number> = { dht11: 0x2f7fd6, hcsr04: 0x1a4f9c, tmp36: 0x1c1e22, npn: 0x1c1e22, ntc: 0x2b6fd8, ldr: 0xd9902f, capacitor: 0x2747a6, diode: 0x1c1e22, inductor: 0x3f8f4d, switch: 0x1f2a3a, dc_supply: 0x1e2530, seven_segment: 0x202328, hc595: 0x1c1e22, fsr: 0x1f2226 };
         const sizes: Record<string, [number, number, number, number, number]> = { // w,h,d, cx, cz (px)
           dht11: [32, 2, 38, 10, -25], hcsr04: [82, 0.4, 38, 15, -25], tmp36: [20, 1.6, 6, 10, -6], npn: [20, 1.6, 6, 10, -6], ntc: [12, 1, 12, 5, -12], ldr: [14, 0.6, 14, 5, -14],
-          capacitor: [14, 2.2, 14, 5, -18], diode: [16, 0.8, 9, 15, 0], inductor: [20, 1.1, 11, 15, 0], switch: [32, 1, 12, 10, -10], dc_supply: [40, 2.5, 36, 10, -24], seven_segment: [52, 1.2, 28, 20, 15], hc595: [78, 1.4, 22, 35, 15],
+          capacitor: [14, 2.2, 14, 5, -18], diode: [16, 0.8, 9, 15, 0], inductor: [20, 1.1, 11, 15, 0], switch: [32, 1, 12, 10, -10], dc_supply: [40, 2.5, 36, 10, -24], seven_segment: [52, 1.2, 28, 20, 15], hc595: [78, 1.4, 22, 35, 15], fsr: [20, 0.3, 24, 5, -26],
         };
         const sz = sizes[part.type] ?? [20, 1, 10, 10, 0];
         const b = box(sz[0] * S, sz[1], sz[2] * S, mat(colors[part.type] ?? 0x445566)); g.add(at(b, sz[3], 0.9 + sz[1] / 2, sz[4]));
@@ -225,9 +234,35 @@ export default function Board3D() {
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
     let raf = 0;
-    const loop = () => { raf = requestAnimationFrame(loop); controls.update(); for (const d of ctx.current!.dyn) d.update(getState().snap); renderer.render(scene, camera); };
+    // keyboard navigation (focus the view first): WASD pan, Q/E rotate, R/F or +/- zoom
+    const keys = new Set<string>();
+    const kd = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if ('wasdqerf+-='.includes(k) || k.startsWith('arrow')) { keys.add(k); e.preventDefault(); } };
+    const ku = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
+    const blur = () => keys.clear();
+    el.tabIndex = 0;
+    el.addEventListener('keydown', kd); el.addEventListener('keyup', ku); el.addEventListener('blur', blur);
+    el.addEventListener('pointerdown', () => el.focus());
+    let last = performance.now();
+    const fwd = new THREE.Vector3(), right = new THREE.Vector3(), off = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    const steer = () => {
+      const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!keys.size) return;
+      const dist = camera.position.distanceTo(controls.target);
+      camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize(); right.crossVectors(fwd, up).normalize();
+      const sp = dist * 0.9 * dt; const move = new THREE.Vector3();
+      if (keys.has('w') || keys.has('arrowup')) move.addScaledVector(fwd, sp);
+      if (keys.has('s') || keys.has('arrowdown')) move.addScaledVector(fwd, -sp);
+      if (keys.has('d') || keys.has('arrowright')) move.addScaledVector(right, sp);
+      if (keys.has('a') || keys.has('arrowleft')) move.addScaledVector(right, -sp);
+      camera.position.add(move); controls.target.add(move);
+      const rot = (keys.has('e') ? 1 : 0) - (keys.has('q') ? 1 : 0);
+      if (rot) { off.subVectors(camera.position, controls.target).applyAxisAngle(up, rot * 1.6 * dt); camera.position.copy(controls.target).add(off); }
+      const zoom = (keys.has('f') || keys.has('-') ? 1 : 0) - (keys.has('r') || keys.has('+') || keys.has('=') ? 1 : 0);
+      if (zoom) { off.subVectors(camera.position, controls.target); const L = THREE.MathUtils.clamp(off.length() * (1 + zoom * 1.2 * dt), controls.minDistance, controls.maxDistance); off.setLength(L); camera.position.copy(controls.target).add(off); }
+    };
+    const loop = () => { raf = requestAnimationFrame(loop); steer(); controls.update(); for (const d of ctx.current!.dyn) d.update(getState().snap); renderer.render(scene, camera); };
     loop();
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose(); el.innerHTML = ''; ctx.current = null; };
+    return () => { cancelAnimationFrame(raf); el.removeEventListener('keydown', kd); el.removeEventListener('keyup', ku); el.removeEventListener('blur', blur); ro.disconnect(); controls.dispose(); renderer.dispose(); el.innerHTML = ''; ctx.current = null; };
   }, []);
 
   useEffect(() => {
@@ -250,7 +285,13 @@ export default function Board3D() {
   }, [project.parts, project.wires]);
 
   useEffect(() => { const c = ctx.current; if (c) c.scene.background = new THREE.Color(theme === 'light' ? 0xe9eef6 : 0x0b1220); }, [theme]);
-  return <div ref={host} className="three-host" data-testid="view-3d" />;
+  const lang = useStore((s) => s.lang);
+  return (
+    <div className="three-wrap">
+      <div ref={host} className="three-host" data-testid="view-3d" />
+      <div className="three-keys">{lang === 'ar' ? 'انقر ثم: ' : 'Click, then: '}<bdi dir="ltr"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></bdi> {lang === 'ar' ? 'تحريك' : 'pan'} · <bdi dir="ltr"><kbd>Q</kbd><kbd>E</kbd></bdi> {lang === 'ar' ? 'تدوير' : 'rotate'} · <bdi dir="ltr"><kbd>R</kbd><kbd>F</kbd></bdi> {lang === 'ar' ? 'تقريب' : 'zoom'}</div>
+    </div>
+  );
 }
 // keep three.js out of tests that import this file indirectly
 export const __unused = subscribe;

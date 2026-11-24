@@ -1,6 +1,6 @@
 {
   "name": "arduino-sim-pro",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Arduino Simulator Pro - integrated Arduino Uno simulator (real AVR execution + circuit solver)",
   "main": "dist/main/main.cjs",
   "scripts": {

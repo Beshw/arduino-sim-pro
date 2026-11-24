@@ -71,6 +71,15 @@ await win.waitForTimeout(1500);
 await shot('05-3d');
 const px = await win.evaluate(() => { const c = document.querySelector('[data-testid="view-3d"] canvas'); return c ? [c.width, c.height] : null; });
 check('3d-render', px && px[0] > 100, JSON.stringify(px));
+const v3 = win.locator('[data-testid="view-3d"]');
+const before3 = await v3.screenshot();
+await v3.click({ position: { x: 20, y: 20 } });
+await win.keyboard.down('e'); await win.waitForTimeout(600); await win.keyboard.up('e');
+await win.keyboard.down('w'); await win.waitForTimeout(300); await win.keyboard.up('w');
+await win.waitForTimeout(700);
+const after3 = await v3.screenshot();
+check('3d-keyboard', !before3.equals(after3), `bytes ${before3.length} -> ${after3.length}`);
+await shot('05b-3d-keys');
 await win.click('[data-testid="view-sch-btn"]');
 await win.waitForSelector('[data-testid="schematic"]');
 await shot('06-schematic');
@@ -136,6 +145,46 @@ s = await state();
 check('spi-595-ui', (s.snap?.parts?.U1?.spiBytes ?? 0) >= 2 && s.snap?.parts?.U1?.powered, `${s.snap?.parts?.U1?.hex} after ${s.snap?.parts?.U1?.spiBytes} bytes`);
 await shot('13-shift595');
 await win.click('[data-testid="btn-stop"]').catch(() => undefined);
+
+// guided course: open a lesson, run its example, pass the quiz -> progress 1/16
+await win.evaluate(() => { window.__aspActions.resetLessonProgress(); window.__aspSet({ page: 'lessons' }); });
+await win.waitForSelector('[data-testid="course-progress"]');
+const p0 = await win.textContent('[data-testid="course-progress"]');
+await shot('20-course');
+await win.click('[data-testid="lesson-blink"]');
+await win.waitForSelector('[data-testid="quiz"]');
+await shot('21-lesson');
+await win.click('[data-testid="lesson-run"]');
+await win.waitForFunction(() => window.__aspState().simState === 'running', null, { timeout: 120000 }).catch(() => undefined);
+await win.waitForTimeout(1500);
+const ranOk = await win.evaluate(() => !!window.__aspState().lessonProgress.blink?.ran);
+await win.click('[data-testid="btn-stop"]').catch(() => undefined);
+await win.evaluate(() => window.__aspSet({ page: 'lessons' }));
+await win.click('[data-testid="lesson-blink"]');
+await win.waitForSelector('[data-testid="quiz"]');
+await win.locator('[data-testid="quiz"] .qq').nth(0).locator('.opt').nth(0).click(); // wrong on purpose
+await win.locator('[data-testid="quiz"] .qq').nth(1).locator('.opt').nth(1).click();
+await win.locator('[data-testid="quiz"] button.btn.primary').click();
+const wrongBlocked = await win.evaluate(() => !window.__aspState().lessonProgress.blink?.quiz);
+await win.locator('[data-testid="quiz"] .qq').nth(0).locator('.opt').nth(1).click();
+await win.locator('[data-testid="quiz"] button.btn.primary').click();
+await win.waitForTimeout(300);
+await shot('22-quiz');
+await win.locator('.lesson-view .page-h .btn').first().click();
+await win.waitForSelector('[data-testid="course-progress"]');
+const p1 = await win.textContent('[data-testid="course-progress"]');
+check('course-progress', /0\/16/.test(p0 ?? '') && /1\/16/.test(p1 ?? '') && ranOk && wrongBlocked, `${p0} -> ${p1} ran=${ranOk} wrongBlocked=${wrongBlocked}`);
+await win.click('.seg button:nth-child(2)');
+await win.waitForSelector('.uno-x');
+await win.waitForTimeout(300);
+await shot('23-board-explorer');
+await win.click('.uno-x .seg button:nth-child(2)');
+await win.waitForSelector('[data-testid="ux-A4"]');
+await win.hover('[data-testid="ux-A4"]');
+const ux2 = await win.textContent('[data-testid="ux-info"]').catch(() => '');
+check('board-explorer', /A4/.test(ux2 ?? '') && /I2C/.test(ux2 ?? ''), (ux2 || '').slice(0, 80));
+await shot('24-pinout');
+await win.evaluate(() => window.__aspSet({ page: 'home' }));
 
 // real serial monitor against a virtual serial pair (socat), when provided
 if (process.env.ASP_TEST_PTY) {

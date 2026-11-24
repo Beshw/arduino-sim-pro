@@ -510,6 +510,141 @@ void loop() {
     },
   },
   {
+    id: 'piano', level: 1,
+    title: { ar: 'بيانو صغير بخمسة مفاتيح', en: 'Mini piano (5 keys)' },
+    description: { ar: 'خمسة أزرار بمقاومات سحب داخلية؛ كل زر يعزف نغمة مختلفة على الطنان. اضغط الأزرار بالفأرة أثناء التشغيل.', en: 'Five buttons with internal pull-ups; each plays a different note on the buzzer. Press them with the mouse while running.' },
+    project: () => {
+      const b = new Builder().rails().wire(H('BN', 2), H('TN', 1), '#222a36');
+      [2, 6, 10, 14, 18].forEach((c, i) => {
+        b.place(`K${i + 1}`, 'button', '1a', 'e', c).wire(H('a', c), `uno.D${2 + i}`, ['#ff3b3b', '#ffb000', '#ffd21f', '#2fd36b', '#2f9bff'][i]).wire(H('j', c + 3), H('BN', c + 3), '#222a36');
+      });
+      b.place('BZ1', 'buzzer', 'neg', 'c', 25).wire(H('a', 25), H('TN', 25), '#222a36').wire(H('a', 26), 'uno.D8', '#ff7a00');
+      return b.build('Mini Piano', `const int KEYS[5]  = {2, 3, 4, 5, 6};
+const int NOTES[5] = {262, 294, 330, 349, 392}; // C D E F G
+const int BUZZER = 8;
+
+void setup() {
+  for (int i = 0; i < 5; i++) pinMode(KEYS[i], INPUT_PULLUP);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int playing = -1;
+  for (int i = 0; i < 5; i++) {
+    if (digitalRead(KEYS[i]) == LOW) { playing = i; break; }  // pressed = LOW
+  }
+  if (playing >= 0) {
+    tone(BUZZER, NOTES[playing]);
+    Serial.print("Note ");
+    Serial.println(NOTES[playing]);
+  } else {
+    noTone(BUZZER);
+  }
+  delay(30);
+}
+`);
+    },
+  },
+  {
+    id: 'fsr', level: 1,
+    title: { ar: 'حساس القوة FSR', en: 'Force sensor (FSR)' },
+    description: { ar: 'مقسم جهد من FSR ومقاومة 10kΩ على A0؛ كلما زاد الضغط زاد سطوع LED. غيّر قوة الضغط من الخصائص.', en: 'FSR + 10 kΩ divider on A0; more force, brighter LED. Change the force in the inspector.' },
+    project: () => new Builder().rails()
+      .place('FSR1', 'fsr', 'a', 'c', 4, { force: 300 }).place('R2', 'resistor', 'a', 'd', 5, { ohms: 10000 })
+      .wire(H('a', 4), H('TP', 4), '#ff3b3b').wire(H('e', 9), H('TN', 10), '#222a36').wire(H('a', 5), 'uno.A0', '#a46bff')
+      .place('LED1', 'led', 'cathode', 'c', 16, { color: 'blue' }).place('R1', 'resistor', 'a', 'b', 17, { ohms: 220 })
+      .wire(H('a', 16), H('TN', 16), '#222a36').wire('uno.D9', H('a', 21), '#ffb000')
+      .build('FSR', `const int FSR_PIN = A0;
+const int LED = 9;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  int raw = analogRead(FSR_PIN);          // 0..1023
+  analogWrite(LED, map(raw, 0, 1023, 0, 255));
+  Serial.print("FSR: ");
+  Serial.print(raw);
+  if (raw < 10) Serial.println("  (no touch)");
+  else if (raw < 300) Serial.println("  (light)");
+  else if (raw < 700) Serial.println("  (medium)");
+  else Serial.println("  (hard)");
+  delay(200);
+}
+`),
+  },
+  {
+    id: 'stepper', level: 2,
+    title: { ar: 'محرك خطوي 28BYJ-48', en: 'Stepper motor 28BYJ-48' },
+    description: { ar: 'مكتبة Stepper تشغّل الملفات الأربعة بالتتابع عبر ULN2003: دورة كاملة (2048 خطوة) ثم نصف دورة للخلف.', en: 'The Stepper library energises the four coils in sequence through a ULN2003: one full turn (2048 steps), then half a turn back.' },
+    project: () => new Builder().rails()
+      .free('ST1', 'stepper', 520, 300)
+      .wire('uno.D8', 'ST1.IN1', '#ff3b3b').wire('uno.D9', 'ST1.IN2', '#ffb000').wire('uno.D10', 'ST1.IN3', '#ffd21f').wire('uno.D11', 'ST1.IN4', '#2fd36b')
+      .wire(H('TP', 20), 'ST1.VCC', '#ff3b3b').wire(H('TN', 20), 'ST1.GND', '#222a36')
+      .build('Stepper', `#include <Stepper.h>
+
+const int STEPS_PER_REV = 2048;          // 28BYJ-48 with its 1:64 gearbox
+// IN1, IN3, IN2, IN4 order gives the correct coil sequence
+Stepper motor(STEPS_PER_REV, 8, 10, 9, 11);
+
+void setup() {
+  motor.setSpeed(12);                    // rpm
+  Serial.begin(9600);
+}
+
+void loop() {
+  Serial.println("one turn clockwise");
+  motor.step(STEPS_PER_REV);
+  delay(500);
+  Serial.println("half turn back");
+  motor.step(-STEPS_PER_REV / 2);
+  delay(500);
+}
+`),
+  },
+  {
+    id: 'smart_traffic', level: 2,
+    title: { ar: 'مشروع: إشارة مرور ذكية', en: 'Project: smart traffic light' },
+    description: { ar: 'حساس المسافة يقيس بُعد السيارة، والإشارة تتحول من الأخضر إلى الأصفر ثم الأحمر كلما اقتربت. غيّر المسافة من الخصائص.', en: 'The distance sensor measures how far the car is; the light turns green → yellow → red as it gets closer. Change the distance in the inspector.' },
+    project: () => new Builder().rails()
+      .place('US1', 'hcsr04', 'vcc', 'c', 2, { distance: 80 }).wire(H('a', 2), H('TP', 2), '#ff3b3b').wire(H('a', 5), H('TN', 5), '#222a36')
+      .wire(H('a', 3), 'uno.D6', '#2fd36b').wire(H('a', 4), 'uno.D5', '#ffb000')
+      .place('LR', 'led', 'cathode', 'c', 9, { color: 'red' }).place('R1', 'resistor', 'a', 'b', 10, { ohms: 220 }).wire(H('a', 9), H('TN', 9), '#222a36').wire('uno.D12', H('a', 14), '#ff3b3b')
+      .place('LY', 'led', 'cathode', 'c', 16, { color: 'yellow' }).place('R2', 'resistor', 'a', 'b', 17, { ohms: 220 }).wire(H('a', 16), H('TN', 16), '#222a36').wire('uno.D11', H('a', 21), '#ffd21f')
+      .place('LG', 'led', 'cathode', 'c', 23, { color: 'green' }).place('R3', 'resistor', 'a', 'b', 24, { ohms: 220 }).wire(H('a', 23), H('TN', 23), '#222a36').wire('uno.D10', H('a', 28), '#2fd36b')
+      .build('Smart Traffic Light', `const int TRIG = 6, ECHO = 5;
+const int RED = 12, YELLOW = 11, GREEN = 10;
+
+float readCm() {
+  digitalWrite(TRIG, LOW);  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH); delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  long us = pulseIn(ECHO, HIGH, 30000);
+  return us * 0.0343 / 2.0;
+}
+
+void show(int r, int y, int g) {
+  digitalWrite(RED, r); digitalWrite(YELLOW, y); digitalWrite(GREEN, g);
+}
+
+void setup() {
+  pinMode(TRIG, OUTPUT); pinMode(ECHO, INPUT);
+  pinMode(RED, OUTPUT); pinMode(YELLOW, OUTPUT); pinMode(GREEN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  float cm = readCm();
+  Serial.print("Car at "); Serial.print(cm, 0); Serial.print(" cm -> ");
+  if (cm > 50)      { show(LOW, LOW, HIGH); Serial.println("GO"); }
+  else if (cm > 20) { show(LOW, HIGH, LOW); Serial.println("SLOW"); }
+  else              { show(HIGH, LOW, LOW); Serial.println("STOP"); }
+  delay(200);
+}
+`, ['D12', 'D11', 'D10']),
+  },
+  {
     id: 'motor', level: 3,
     title: { ar: 'محرك DC بترانزستور وPWM', en: 'DC motor + NPN + PWM' },
     description: { ar: 'ترانزستور NPN كمفتاح، ثنائي حماية عكسي، وتحكم بالسرعة عبر PWM؛ تحسب السرعة من نموذج كهروميكانيكي.', en: 'NPN switch, flyback diode, PWM speed control with an electromechanical model.' },

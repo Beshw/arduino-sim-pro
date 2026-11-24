@@ -35,6 +35,9 @@ export interface AppState {
   /** 'sim' = virtual board, otherwise the real serial port path (COM3, /dev/ttyACM0) */
   serialSource: string;
   baud: number;
+  /** lesson whose example is currently open (course progress) */
+  lessonActive: string | null;
+  lessonProgress: Record<string, { quiz?: boolean; ran?: boolean }>;
 }
 
 const initialProject = (() => {
@@ -51,6 +54,8 @@ let state: AppState = {
   simState: 'idle', simError: null, rt: 0, speed: 1,
   compile: null, snap: null, serial: [], serialPartial: '',
   wireColor: '#2f9bff', toast: null, circuitStale: false, modal: null, showTimestamps: true, serialSource: 'sim', baud: 9600,
+  lessonActive: null,
+  lessonProgress: (() => { try { return JSON.parse(localStorage.getItem('asp-lessons') || '{}'); } catch { return {}; } })(),
 };
 const listeners = new Set<() => void>();
 
