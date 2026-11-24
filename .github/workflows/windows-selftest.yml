@@ -42,3 +42,25 @@ jobs:
         with:
           name: windows-selftest-reports
           path: ${{ runner.temp }}/asp-reports
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: GUI end-to-end test on real Windows (Playwright + installed app)
+        shell: pwsh
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.63.0
+          $out = "$env:RUNNER_TEMP\asp-e2e"
+          node tests/e2e/ui.e2e.mjs $out "$env:APP_EXE"
+          if ($LASTEXITCODE -ne 0) { throw "GUI e2e failed" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-gui-e2e
+          path: ${{ runner.temp }}/asp-e2e
+      - name: Uninstall
+        if: always()
+        shell: pwsh
+        run: |
+          $u = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Uninstall Arduino Simulator Pro.exe' | Select-Object -First 1
+          if ($u) { Start-Process -FilePath $u.FullName -ArgumentList '/S' -Wait }
