@@ -9,6 +9,8 @@ on:
         required: true
   release:
     types: [published]
+  push:
+    branches: ['ci/installer']   # branch carrying the installer split into <100 MB parts under ci-installer/
 jobs:
   selftest:
     runs-on: windows-latest
@@ -19,6 +21,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if ("${{ github.event_name }}" -eq 'push') {
+            git clone --depth 1 --branch "${{ github.ref_name }}" "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}" src
+            cmd /c "copy /b src\ci-installer\setup.exe.part* setup.exe"
+            $h = (Get-FileHash setup.exe -Algorithm SHA256).Hash.ToLower()
+            $want = ((Get-Content src\ci-installer\SHA256SUMS) -split '\s+')[0]
+            "got $h want $want"
+            if ($h -ne $want) { throw 'installer checksum mismatch' }
+            exit 0
+          }
           $tag = "${{ github.event.inputs.tag }}"
           if (-not $tag) { $tag = "${{ github.event.release.tag_name }}" }
           gh release download $tag --repo "${{ github.repository }}" --pattern '*.exe' --output setup.exe
