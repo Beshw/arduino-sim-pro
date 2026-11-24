@@ -4,8 +4,8 @@ name: Windows self-test
 on:
   workflow_dispatch:
     inputs:
-      installer_url:
-        description: 'Direct URL of Arduino-Simulator-Pro-Setup-*.exe (e.g. a release asset)'
+      tag:
+        description: 'Release tag whose installer should be tested (e.g. v1.2.0)'
         required: true
   release:
     types: [published]
@@ -19,9 +19,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $url = "${{ github.event.inputs.installer_url }}"
-          if (-not $url) { $url = (gh release view "${{ github.event.release.tag_name }}" --repo "${{ github.repository }}" --json assets -q '.assets[] | select(.name | endswith(".exe")) | .url') }
-          Invoke-WebRequest -Uri $url -OutFile setup.exe
+          $tag = "${{ github.event.inputs.tag }}"
+          if (-not $tag) { $tag = "${{ github.event.release.tag_name }}" }
+          gh release download $tag --repo "${{ github.repository }}" --pattern '*.exe' --output setup.exe
           (Get-FileHash setup.exe -Algorithm SHA256).Hash
       - name: Silent install (per-user)
         shell: pwsh
