@@ -34,6 +34,13 @@ jobs:
           if (-not $tag) { $tag = "${{ github.event.release.tag_name }}" }
           gh release download $tag --repo "${{ github.repository }}" --pattern '*.exe' --output setup.exe
           (Get-FileHash setup.exe -Algorithm SHA256).Hash
+      - name: Publish the installer for download (Actions artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arduino-Simulator-Pro-Setup-Windows
+          path: setup.exe
+          retention-days: 90
+          compression-level: 0
       - name: Silent install (per-user)
         shell: pwsh
         run: |
