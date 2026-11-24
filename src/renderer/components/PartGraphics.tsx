@@ -37,6 +37,8 @@ export function bodyBox(type: string): { x: number; y: number; w: number; h: num
     case 'servo': return { x: -20, y: -64, w: 60, h: 66 };
     case 'dc_motor': return { x: -12, y: -36, w: 34, h: 38 };
     case 'lcd1602': return { x: -12, y: -86, w: 174, h: 88 };
+    case 'lcd1602_i2c': return { x: -12, y: -86, w: 174, h: 88 };
+    case 'hc595': return { x: -4, y: -2, w: 78, h: 34 };
     case 'seven_segment': return { x: -6, y: -2, w: 52, h: 34 };
     case 'capacitor': return { x: -4, y: -30, w: 18, h: 32 };
     case 'inductor': return { x: -2, y: -9, w: 34, h: 13 };
@@ -176,6 +178,20 @@ function Lcd({ live }: { live: Live }) {
         </g>
       ))}
       <rect x={-2} y={-10} width={154} height={8} fill="#0f0f12" />
+    </g>
+  );
+}
+
+function Dip16({ live }: { live: Live }) {
+  const q: boolean[] = Array.isArray(live?.q) ? live!.q : [];
+  return (
+    <g>
+      <rect x={-4} y={4} width={78} height={22} rx={2} fill="#1c1e22" stroke="#33373e" />
+      <path d="M -4 11 a 4 4 0 0 1 0 8" fill="#2c3037" />
+      <text x={35} y={18.5} fontSize={8} textAnchor="middle" fill="#c9ced6" fontFamily="monospace" fontWeight={700}>74HC595</text>
+      {live?.hex ? <text x={66} y={13} fontSize={5.5} textAnchor="end" fill="#7fd04a" fontFamily="monospace">{String(live.hex)}</text> : null}
+      {/* output activity dots: Q0 top row, Q1..Q7 bottom row */}
+      {q.map((on, i) => { const [x, y] = i === 0 ? [10, 7] : [(i - 1) * 10, 23]; return <circle key={i} cx={x} cy={y} r={1.6} fill={on ? '#ffb000' : '#3a3f47'} />; })}
     </g>
   );
 }
@@ -369,6 +385,8 @@ export function PartSvg({ part, live, h, onReset }: { part: PartInstance; live: 
       );
     }
     case 'lcd1602': return <Lcd live={live} />;
+    case 'lcd1602_i2c': return <g><Lcd live={live} /><rect x={-4} y={-14} width={40} height={12} rx={2} fill="#1d3f8f" /><text x={16} y={-5} fontSize={8} textAnchor="middle" fill="#cfe0ff" fontWeight={700}>I2C {String(live?.address ?? '')}</text></g>;
+    case 'hc595': return <Dip16 live={live} />;
     case 'seven_segment': return <SevenSeg live={live} color={String(p.color)} />;
     case 'capacitor': return (
       <g><Leg x={0} y2={-8} /><Leg x={10} y2={-8} />
@@ -413,7 +431,7 @@ export function PartIcon({ type, size = 40 }: { type: string; size?: number }) {
   const bb = bodyBox(type);
   const def = PART_MAP[type];
   const part: PartInstance = { id: 'icon', type, x: 0, y: 0, props: Object.fromEntries((def?.props ?? []).map((p) => [p.key, p.default])) };
-  const live = type === 'led' ? { avg: { current_anode: 0.012 } } : type === 'lcd1602' ? { displayOn: true, lines: ['Hello', ''], backlight: 0.01 } : undefined;
+  const live = type === 'led' ? { avg: { current_anode: 0.012 } } : type === 'lcd1602' || type === 'lcd1602_i2c' ? { displayOn: true, lines: ['Hello', ''], backlight: 0.01 } : undefined;
   const pad = 4;
   return (
     <svg width={size} height={size} viewBox={`${bb.x - pad} ${bb.y - pad} ${bb.w + 2 * pad} ${bb.h + 2 * pad}`} aria-hidden>

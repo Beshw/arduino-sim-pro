@@ -59,7 +59,7 @@ function uniqueId(prefix: string, p: Project) {
   while (ids.has(`${prefix}${i}`)) i++;
   return `${prefix}${i}`;
 }
-const PREFIX: Record<string, string> = { resistor: 'R', led: 'LED', rgb_led: 'RGB', button: 'BTN', switch: 'SW', potentiometer: 'POT', ldr: 'LDR', ntc: 'NTC', tmp36: 'TMP', dht11: 'DHT', hcsr04: 'US', buzzer: 'BZ', servo: 'SERVO', dc_motor: 'M', lcd1602: 'LCD', seven_segment: 'SEG', capacitor: 'C', inductor: 'L', diode: 'D', npn: 'Q', dc_supply: 'V', breadboard: 'bb', uno: 'uno' };
+const PREFIX: Record<string, string> = { resistor: 'R', led: 'LED', rgb_led: 'RGB', button: 'BTN', switch: 'SW', potentiometer: 'POT', ldr: 'LDR', ntc: 'NTC', tmp36: 'TMP', dht11: 'DHT', hcsr04: 'US', buzzer: 'BZ', servo: 'SERVO', dc_motor: 'M', lcd1602: 'LCD', lcd1602_i2c: 'LCD', hc595: 'U', seven_segment: 'SEG', capacitor: 'C', inductor: 'L', diode: 'D', npn: 'Q', dc_supply: 'V', breadboard: 'bb', uno: 'uno' };
 
 export function addPart(type: string, x: number, y: number): string | null {
   const p = getState().project;
@@ -178,7 +178,7 @@ function onWorker(m: FromWorker) {
     case 'frame':
       if (getState().simState === 'idle' || getState().simState === 'error') break; // late frame after stop
       pushFrame(m.gpio, m.probes, m.snap.timeS);
-      appendSerial(m.snap.serial);
+      if (getState().serialSource === 'sim') appendSerial(m.snap.serial);
       frames++;
       setState({ snap: m.snap, rt: m.rt });
       break;
@@ -235,8 +235,32 @@ function startWorker(autorun: boolean) {
 export function pauseSimulation() { if (getState().simState === 'running') send({ type: 'pause' }); else if (getState().simState === 'paused') runSimulation(); }
 export function stopSimulation() { send({ type: 'stop' }); setState({ simState: 'idle', snap: null, rt: 0 }); }
 export function setSpeed(v: number) { setState({ speed: v }); send({ type: 'speed', value: v }); }
+// ---------- real hardware serial monitor ----------
+let hwTimer: ReturnType<typeof setInterval> | null = null;
+export async function connectHardwareSerial(port: string | null) {
+  if (hwTimer) { clearInterval(hwTimer); hwTimer = null; }
+  const ar = getState().lang === 'ar';
+  if (!port || port === 'sim') { await api('serialClose').catch(() => undefined); setState({ serialSource: 'sim', serial: [], serialPartial: '' }); return; }
+  const r: any = await api('serialOpen', { port, baud: getState().baud }).catch((e: any) => ({ ok: false, message: String(e?.message ?? e) }));
+  if (!r?.ok) { toast((ar ? 'تعذر فتح المنفذ: ' : 'Cannot open port: ') + (r?.message ?? port), 'error'); setState({ serialSource: 'sim' }); return; }
+  setState({ serialSource: port, serial: [{ t: stamp(), text: (ar ? '— متصل بـ ' : '— connected to ') + `${port} @ ${getState().baud} baud`, dir: 'tx' }], serialPartial: '' });
+  let busy = false;
+  hwTimer = setInterval(async () => {
+    if (busy) return; busy = true;
+    try {
+      const d: any = await api('serialRead');
+      if (d?.data) appendSerial(d.data);
+      if (!d?.ok) { if (hwTimer) clearInterval(hwTimer); hwTimer = null; setState({ serialSource: 'sim' }); toast(ar ? 'انقطع الاتصال بالمنفذ التسلسلي' : 'Serial port disconnected', 'info'); }
+    } finally { busy = false; }
+  }, 100);
+}
 export function serialSend(text: string, ending = '\n') {
   const s = getState();
+  if (s.serialSource !== 'sim') {
+    api('serialWrite', { data: text + ending }).then((r: any) => { if (!r?.ok) toast(r?.message ?? 'write failed', 'error'); }).catch((e: any) => toast(String(e?.message ?? e), 'error'));
+    setState({ serial: [...s.serial, { t: stamp(), text, dir: 'tx' as const }].slice(-3000) });
+    return;
+  }
   if (s.simState !== 'running' && s.simState !== 'paused') { toast(s.lang === 'ar' ? 'شغّل المحاكاة أولاً' : 'Start the simulation first'); return; }
   send({ type: 'serial', text: text + ending });
   setState({ serial: [...s.serial, { t: stamp(), text, dir: 'tx' as const }].slice(-3000) });

@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { removeTempDir } from './tempdir';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { resolveTool, probeVersion } from './toolchain';
@@ -57,7 +58,7 @@ export async function runNgspice(netlist: string, opts: { timeoutMs?: number; da
     }
     if (/\berror\b/i.test(r.out) && !data) return { ok: false, executed: true, message: 'ngspice reported errors', output: r.out.slice(-8000), durationMs: Date.now() - t0, ngspice: tool.path, netlistSha256 };
     return { ok: true, executed: true, message: 'ngspice simulation completed', output: r.out.slice(-8000), data, durationMs: Date.now() - t0, ngspice: tool.path, netlistSha256 };
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTempDir(dir); }
 }
 
 // ------------------------------- simavr -------------------------------
@@ -107,7 +108,7 @@ export async function runSimavr(code: string, pins: string[], durationS: number)
     const transitions = edges.length;
     if (transitions < 2) return { ok: false, stage: 'trace', message: 'simavr trace contains no GPIO transitions', output: r.out, native: false, edges };
     return { ok: true, stage: 'native_gpio', message: 'simavr executed the firmware and produced a GPIO trace', edges, output: r.out.slice(-4000), firmwareSha256: build.sha256?.hex, simavr: sim.path, native: true, durationWallMs: Date.now() - t0, vcdBytes: vcd.length };
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTempDir(dir); }
 }
 
 export function ngspiceVersion() {

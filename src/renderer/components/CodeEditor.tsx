@@ -74,10 +74,12 @@ export default function CodeEditor() {
     register();
     const e = monaco.editor.create(host.current!, {
       value: getState().project.code, language: 'cpp', theme: getState().theme === 'light' ? 'asp-light' : 'asp-dark',
-      fontSize: 13, fontFamily: "'Cascadia Code', Consolas, 'Courier New', monospace", minimap: { enabled: false }, automaticLayout: true,
+      fontSize: 13, fontFamily: "'JetBrains Mono', 'Cascadia Code', Consolas, monospace", fontLigatures: true, lineHeight: 21, minimap: { enabled: false }, automaticLayout: true,
       scrollBeyondLastLine: false, tabSize: 2, renderLineHighlight: 'all', smoothScrolling: true, padding: { top: 8 }, fixedOverflowWidgets: true,
       lineNumbersMinChars: 3, glyphMargin: true, wordWrap: 'off',
     });
+    // the bundled font may finish loading after Monaco measured the fallback font
+    document.fonts?.load("13px 'JetBrains Mono'").then(() => monaco.editor.remeasureFonts()).catch(() => undefined);
     e.onDidChangeModelContent(() => { const v = e.getValue(); if (v !== getState().project.code) A.setCode(v); });
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => A.saveProject());
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR, () => A.runSimulation());

@@ -29,7 +29,7 @@ export function TopBar() {
         <button className="icon-btn ghost" onClick={() => setState((s) => ({ page: s.page === 'home' ? 'projects' : 'home' }))} title="Menu"><Icon name="menu" size={22} /></button>
         <Logo size={34} />
         <div className="tb-title">
-          <div className="tb-name">Arduino Simulator Pro <span className="ver">v1.0</span></div>
+          <div className="tb-name">Arduino Simulator Pro <span className="ver">v1.1</span></div>
           <div className="tb-sub">{t('appSub')}</div>
         </div>
       </div>
@@ -139,7 +139,7 @@ export function EditorPanel({ wide = false }: { wide?: boolean }) {
   return (
     <section className={'editor-panel card flush' + (wide ? ' wide' : '')}>
       <div className="panel-head">
-        <span className="file-tab"><Icon name="file" size={14} /> {(name || 'sketch').toUpperCase().replace(/\s+/g, '_').slice(0, 24)}.INO</span>
+        <span className="file-tab" title={name}><Icon name="file" size={14} /> <bdi className="fname">{(name || 'sketch').replace(/\s+/g, '_').slice(0, 28)}.ino</bdi></span>
         <span className="grow" />
         <span className={'save-state' + (dirty ? ' dirty' : '')}><span className="led" />{dirty ? t('unsaved') : t('saved')}</span>
         <button className="icon-btn sm" title={t('saveProject')} onClick={() => A.saveProject()}><Icon name="save" size={15} /></button>
@@ -216,7 +216,7 @@ export function useCards(): Card[] {
       case 'dht11': cards.push({ icon: 'thermo', title: 'DHT11', value: `${part.props.temperature}°C`, sub: `${part.props.humidity}% RH · ${live?.responses ?? 0} ${ar ? 'قراءة' : 'reads'}`, color: '#ff7a00' }); break;
       case 'hcsr04': cards.push({ icon: 'wave', title: ar ? 'المسافة' : 'Distance', value: String(part.props.distance), unit: 'cm', sub: `${live?.pings ?? 0} ping`, color: '#17c3d6' }); break;
       case 'dc_motor': cards.push({ icon: 'refresh', title: ar ? 'سرعة المحرك' : 'Motor speed', value: live ? Math.round(Number(live.rpm)).toString() : '—', unit: 'rpm', sub: live ? `${Number(live.voltage).toFixed(2)} V` : '—', pct: live ? Math.min(100, Math.abs(Number(live.rpm)) / 60) : 0, color: '#ff7a00' }); break;
-      case 'lcd1602': cards.push({ icon: 'grid', title: 'LCD 16x2', value: live?.displayOn ? (live.lines?.[0] ?? '').trim().slice(0, 10) || '…' : (ar ? 'مطفأة' : 'Off'), sub: live?.displayOn ? (live.lines?.[1] ?? '').trim().slice(0, 16) : '', color: '#2fd36b' }); break;
+      case 'lcd1602': case 'lcd1602_i2c': cards.push({ icon: 'grid', title: 'LCD 16x2', value: live?.displayOn ? (live.lines?.[0] ?? '').trim().slice(0, 10) || '…' : (ar ? 'مطفأة' : 'Off'), sub: live?.displayOn ? (live.lines?.[1] ?? '').trim().slice(0, 16) : '', color: '#2fd36b' }); break;
       case 'ldr': case 'ntc': case 'tmp36': {
         const pin = pinOf(part.id, ['a', 'b', 'vout']);
         const v = pin && snap ? snap.pins[pin]?.voltage ?? 0 : 0;
@@ -238,7 +238,7 @@ export function MetricCards() {
       {cards.map((c, i) => (
         <div key={i} className="metric" style={{ ['--c' as any]: c.color }} data-testid={c.testid}>
           <div className="m-head"><Icon name={c.icon} size={20} /><span>{c.title}</span></div>
-          <div className="m-val"><b>{c.value}</b>{c.unit && <small>{c.unit}</small>}</div>
+          <div className={'m-val' + (typeof c.value === 'string' && !/^[-\d.]/.test(c.value) ? ' txt' : '')} title={String(c.value)}><b>{c.value}</b>{c.unit && <small>{c.unit}</small>}</div>
           {c.pct !== undefined && <div className="m-bar"><i style={{ width: `${Math.max(0, Math.min(100, c.pct))}%` }} /></div>}
           <div className="m-sub">{c.pct !== undefined && c.sub === '' ? `${c.pct.toFixed(1)}%` : c.sub}</div>
         </div>
@@ -254,6 +254,10 @@ export function SerialMonitor({ tall = false }: { tall?: boolean }) {
   const partial = useStore((s) => s.serialPartial);
   const baud = useStore((s) => s.baud);
   const ts = useStore((s) => s.showTimestamps);
+  const source = useStore((s) => s.serialSource);
+  const lang = useStore((s) => s.lang);
+  const [ports, setPorts] = useState<{ path: string; board: string | null }[]>([]);
+  const refreshPorts = () => { import('../bridge').then(({ api }) => api('boards')).then((r: any) => setPorts((r?.ports ?? []).map((p: any) => ({ path: p.path, board: p.board })))).catch(() => setPorts([])); };
   const [auto, setAuto] = useState(true);
   const [input, setInput] = useState('');
   const [ending, setEnding] = useState('\n');
@@ -264,7 +268,12 @@ export function SerialMonitor({ tall = false }: { tall?: boolean }) {
       <div className="panel-head">
         <Icon name="serial" size={16} className="accent" /><b>{t('serial')}</b>
         <span className="grow" />
-        <select value={baud} onChange={(e) => setState({ baud: Number(e.target.value) })} title="baud">
+        <select value={source} onFocus={refreshPorts} onMouseDown={refreshPorts} onChange={(e) => A.connectHardwareSerial(e.target.value)} title={lang === 'ar' ? 'المصدر' : 'Source'} data-testid="serial-source" className={source !== 'sim' ? 'live-src' : ''}>
+          <option value="sim">{lang === 'ar' ? 'اللوحة الافتراضية' : 'Virtual board'}</option>
+          {ports.map((p) => <option key={p.path} value={p.path}>{p.path}{p.board ? ` (${p.board})` : ''}</option>)}
+          {source !== 'sim' && !ports.some((p) => p.path === source) && <option value={source}>{source}</option>}
+        </select>
+        <select value={baud} onChange={(e) => { setState({ baud: Number(e.target.value) }); if (getState().serialSource !== 'sim') A.connectHardwareSerial(getState().serialSource); }} title="baud">
           {[300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map((b) => <option key={b} value={b}>{b} baud</option>)}
         </select>
         <button className="btn sm" onClick={A.clearSerial}><Icon name="trash" size={14} /> {t('clear')}</button>
@@ -323,7 +332,9 @@ export function ResultsPanel() {
       const o: any = snap.parts[p.id];
       if (p.type === 'led' && o) { const i = Number(o.avg?.current_anode ?? o.current_anode ?? 0); rows.push({ ok: i <= 0.03, text: ar ? `${p.id}: تيار ${(i * 1000).toFixed(1)}mA ${i > 0.0005 ? (i <= 0.03 ? 'ضمن الحد الآمن' : 'مرتفع!') : '(مطفأ)'}` : `${p.id}: ${(i * 1000).toFixed(1)} mA ${i > 0.0005 ? (i <= 0.03 ? 'within safe limit' : 'too high!') : '(off)'}` }); }
       if (p.type === 'buzzer' && o && Number(o.frequency) > 0) rows.push({ ok: true, text: ar ? `${p.id}: توليد نغمة ${Math.round(o.frequency)} Hz` : `${p.id}: tone ${Math.round(o.frequency)} Hz` });
-      if (p.type === 'lcd1602' && o) rows.push({ ok: !!o.displayOn, text: o.displayOn ? (ar ? `الشاشة تعرض: "${(o.lines?.[0] ?? '').trim()}"` : `LCD shows "${(o.lines?.[0] ?? '').trim()}"`) : (ar ? 'الشاشة غير مهيأة بعد' : 'LCD not initialised yet') });
+      if ((p.type === 'lcd1602' || p.type === 'lcd1602_i2c') && o) rows.push({ ok: !!o.displayOn, text: o.displayOn ? (ar ? `الشاشة تعرض: "${(o.lines?.[0] ?? '').trim()}"` : `LCD shows "${(o.lines?.[0] ?? '').trim()}"`) : (ar ? 'الشاشة غير مهيأة بعد' : 'LCD not initialised yet') });
+      if (p.type === 'lcd1602_i2c' && o && !o.connected) rows.push({ ok: false, text: ar ? `${p.id}: صِل SDA بالمنفذ A4 وSCL بالمنفذ A5، وإلا لن ترد الشاشة على ناقل I2C` : `${p.id}: wire SDA to A4 and SCL to A5, otherwise the LCD will not answer on the I2C bus` });
+      if (p.type === 'hc595' && o?.powered) rows.push({ ok: true, text: ar ? `${p.id}: المخارج Q7..Q0 = ${o.hex}${o.spiBytes ? ` (استقبل ${o.spiBytes} بايت SPI)` : ''}` : `${p.id}: outputs Q7..Q0 = ${o.hex}${o.spiBytes ? ` (${o.spiBytes} SPI bytes)` : ''}` });
       if (p.type === 'servo' && o?.active) rows.push({ ok: true, text: ar ? `${p.id}: الزاوية ${Math.round(o.angle)}°` : `${p.id}: ${Math.round(o.angle)}°` });
       if (p.type === 'dht11' && o) rows.push({ ok: Number(o.responses) > 0, text: ar ? `DHT11 استجاب ${o.responses} مرة` : `DHT11 answered ${o.responses} times` });
     }

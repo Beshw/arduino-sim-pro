@@ -45,14 +45,17 @@ export class Hd44780 implements DeviceController {
       const rw = p('RW') > HI;
       if (!rw) {
         const hi4 = [p('D7'), p('D6'), p('D5'), p('D4')].reduce((acc, v) => (acc << 1) | (v > HI ? 1 : 0), 0);
-        if (this.eightBit) {
-          const lo4 = [p('D3'), p('D2'), p('D1'), p('D0')].reduce((acc, v) => (acc << 1) | (v > HI ? 1 : 0), 0);
-          this.exec(rs, (hi4 << 4) | lo4);
-        } else if (this.nibbleHigh === null) this.nibbleHigh = hi4;
-        else { const b = (this.nibbleHigh << 4) | hi4; this.nibbleHigh = null; this.exec(rs, b); }
+        const lo4 = [p('D3'), p('D2'), p('D1'), p('D0')].reduce((acc, v) => (acc << 1) | (v > HI ? 1 : 0), 0);
+        this.latch(rs, hi4, lo4);
       }
     }
     this.lastE = e;
+  }
+  /** one E falling edge with RW=0: D7..D4 = hi4, D3..D0 = lo4 (ignored in 4-bit mode) */
+  latch(rs: boolean, hi4: number, lo4: number) {
+    if (this.eightBit) this.exec(rs, (hi4 << 4) | lo4);
+    else if (this.nibbleHigh === null) this.nibbleHigh = hi4;
+    else { const b = (this.nibbleHigh << 4) | hi4; this.nibbleHigh = null; this.exec(rs, b); }
   }
   private exec(rs: boolean, b: number) {
     if (rs) {
@@ -83,6 +86,87 @@ export class Hd44780 implements DeviceController {
   }
   outputs() {
     return { powered: this.initialized, displayOn: this.displayOn && this.initialized, lines: this.lines(), cursor: this.cursorOn ? this.addr : -1, mode: this.eightBit ? 8 : 4 };
+  }
+}
+
+// ------------------------- I2C LCD (PCF8574 + HD44780) -------------------------
+/**
+ * 16x2 LCD behind a PCF8574 I2C backpack. The expander's 8 outputs drive
+ * P0=RS P1=RW P2=E P3=backlight P4..P7=D4..D7; the HD44780 latches on the
+ * falling edge of E exactly as with a direct parallel connection. The part
+ * answers on the bus only when powered and when SDA/SCL share a node with
+ * the Uno's A4/A5 (checked by the co-simulation from the real netlist).
+ */
+export class I2cLcd implements DeviceController {
+  lcd: Hd44780; port = 0xff; powered = false; wired = false; address = 0x27; bytes = 0;
+  constructor(public partId: string) { this.lcd = new Hd44780(partId); }
+  observe(ctx: DeviceContext) {
+    const on = ctx.volt(`${this.partId}.VCC`) - ctx.volt(`${this.partId}.GND`) > 4.0;
+    if (!on && this.powered) { this.lcd = new Hd44780(this.partId); this.port = 0xff; }
+    this.powered = on; this.lcd.initialized = on;
+  }
+  /** ACK for the slave address */
+  acks(): boolean { return this.powered && this.wired; }
+  write(b: number) {
+    if ((this.port & 0x04) && !(b & 0x04) && !(this.port & 0x02)) this.lcd.latch(!!(this.port & 0x01), this.port >> 4, 0);
+    this.port = b & 0xff; this.bytes++;
+  }
+  read(): number { return this.port; }
+  outputs() {
+    const o = this.lcd.outputs();
+    return { ...o, powered: this.powered, displayOn: o.displayOn && this.powered, backlight: this.powered && (this.port & 0x08) ? 0.012 : 0, address: '0x' + this.address.toString(16).toUpperCase(), connected: this.wired, i2cBytes: this.bytes };
+  }
+}
+
+// ------------------------------- 74HC595 -------------------------------
+/**
+ * 8-bit serial-in/parallel-out shift register with output latch. Inputs are
+ * read from solved node voltages (so shiftOut() bit-banging works through the
+ * circuit); hardware SPI bytes are clocked in by the co-simulation when DS/SHCP
+ * sit on D11/D13. Outputs are push-pull drivers (~50 Ω) referenced to VCC.
+ */
+export class Hc595 implements DeviceController {
+  shift = 0; latch = 0; private sh = false; private st = false; oe = true; mr = true; powered = false; vcc = 0;
+  spiWired = false; bytes = 0; private ctx: DeviceContext | null = null; private pending = false;
+  constructor(public partId: string) {}
+  observe(ctx: DeviceContext) {
+    this.ctx = ctx;
+    const g = ctx.volt(`${this.partId}.GND`);
+    const p = (pin: string) => ctx.volt(`${this.partId}.${pin}`) - g;
+    this.vcc = p('VCC'); const on = this.vcc > 2.0;
+    if (on !== this.powered) { this.powered = on; if (!on) { this.shift = 0; this.latch = 0; } this.schedule(); }
+    if (!on) return;
+    const th = this.vcc * 0.6, tl = this.vcc * 0.3;
+    const lv = (v: number, prev: boolean) => (v > th ? true : v < tl ? false : prev);
+    const mr = lv(p('MR'), this.mr); if (!mr) this.shift = 0;
+    const sh = lv(p('SHCP'), this.sh); if (sh && !this.sh && mr) this.clockBit(lv(p('DS'), false));
+    const st = lv(p('STCP'), this.st); if (st && !this.st) { this.latch = this.shift; this.schedule(); }
+    const oe = !lv(p('OE'), false); if (oe !== this.oe) { this.oe = oe; this.schedule(); }
+    if (mr !== this.mr) { this.mr = mr; this.schedule(); }
+    this.sh = sh; this.st = st;
+  }
+  private clockBit(bit: boolean) { this.shift = ((this.shift << 1) | (bit ? 1 : 0)) & 0x1ff; this.schedule(); }
+  /** a full byte arriving over hardware SPI (MSB first unless lsbFirst) */
+  spiByte(v: number, lsbFirst: boolean) { if (!this.powered || !this.mr) return; for (let i = 0; i < 8; i++) this.clockBit(!!((lsbFirst ? v >> i : v >> (7 - i)) & 1)); this.bytes++; }
+  /** drive outputs one CPU cycle later (propagation delay), outside the current solve */
+  private schedule() {
+    const ctx = this.ctx; if (!ctx || this.pending) return;
+    this.pending = true;
+    ctx.after(1e-8, () => { this.pending = false; this.drive(ctx); });
+  }
+  private drive(ctx: DeviceContext) {
+    const G = 1 / 50;
+    for (let i = 0; i < 8; i++) {
+      const el = ctx.element(`${this.partId}:Q${i}`); if (!el) continue;
+      if (!this.powered || !this.oe) { el.g = 1e-9; el.i = 0; } else { el.g = G; el.i = (this.latch >> i) & 1 ? this.vcc * G : 0; }
+    }
+    const q7s = ctx.element(`${this.partId}:Q7S`);
+    if (q7s) { q7s.g = this.powered ? G : 1e-9; q7s.i = this.powered && (this.shift & 0x80) ? this.vcc * G : 0; }
+    ctx.resolve();
+  }
+  outputs() {
+    const bits = Array.from({ length: 8 }, (_, i) => ((this.latch >> i) & 1) === 1);
+    return { powered: this.powered, outputsEnabled: this.oe, shift: this.shift & 0xff, latch: this.latch & 0xff, q: bits, hex: '0x' + (this.latch & 0xff).toString(16).padStart(2, '0').toUpperCase(), spiBytes: this.bytes, spiWired: this.spiWired };
   }
 }
 

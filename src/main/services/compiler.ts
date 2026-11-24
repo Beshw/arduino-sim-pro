@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { removeTempDir } from './tempdir';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { arduinoCoreDir, bundledLibrariesDir, requireTool, resolveTool } from './toolchain';
@@ -233,7 +234,7 @@ export async function compileSketch(code: string, opts: CompileOptions = {}): Pr
   } catch (e: any) {
     return { ...base, ok: false, backend, stage: 'tools', message: String(e?.message ?? e), durationMs: Date.now() - t0 };
   } finally {
-    if (!opts.outDir) fs.rmSync(work, { recursive: true, force: true });
+    if (!opts.outDir) removeTempDir(work);
   }
 }
 

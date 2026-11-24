@@ -15,7 +15,7 @@ import type { SolveResult, ElN } from './circuit/mna';
 import { checkTopology, CircuitIssue } from './circuit/netlist';
 import { UNO_ANALOG, UNO_DIGITAL } from './parts/catalog';
 import type { Project } from './project';
-import { BuzzerCtl, DeviceContext, DeviceController, Dht11Ctl, HcSr04Ctl, Hd44780, ServoCtl } from './devices';
+import { BuzzerCtl, DeviceContext, DeviceController, Dht11Ctl, HcSr04Ctl, Hd44780, Hc595, I2cLcd, ServoCtl } from './devices';
 
 export interface GpioEvent { t: number; pin: string; value: 0 | 1 } // t in seconds
 export interface ProbeSample { t: number; v: number }
@@ -89,9 +89,11 @@ export class CoSimulation {
     for (const p of project.parts) this.props.set(p.id, { ...p.props });
     for (const p of project.parts) {
       const ctl = p.type === 'lcd1602' ? new Hd44780(p.id) : p.type === 'servo' ? new ServoCtl(p.id) : p.type === 'buzzer' ? new BuzzerCtl(p.id)
-        : p.type === 'dht11' ? new Dht11Ctl(p.id) : p.type === 'hcsr04' ? new HcSr04Ctl(p.id) : null;
+        : p.type === 'dht11' ? new Dht11Ctl(p.id) : p.type === 'hcsr04' ? new HcSr04Ctl(p.id) : p.type === 'lcd1602_i2c' ? new I2cLcd(p.id) : p.type === 'hc595' ? new Hc595(p.id) : null;
       if (ctl) { this.devices.push(ctl); this.devMap.set(p.id, ctl); this.applyDeviceProps(p.id); }
     }
+    this.attachI2cBus();
+    this.attachSpiBus();
     this.hasDynamic = this.built.circuit.hasReactive || project.parts.some((p) => ['dc_motor', 'tmp36'].includes(p.type));
     this.periodic = Math.round(F_CPU * (this.built.circuit.hasReactive ? 100e-6 : 1e-3));
     this.tracePins = new Set(opts.tracePins ?? [...UNO_DIGITAL, ...UNO_ANALOG]);
@@ -124,12 +126,50 @@ export class CoSimulation {
     this.resolve();
   }
 
+  /**
+   * I2C bus on the ATmega328P TWI peripheral. A slave takes part only when its
+   * SDA/SCL pins are on the same circuit nodes as A4/A5. Each address/data
+   * phase completes after 9 SCL periods at the frequency the firmware set in TWBR.
+   */
+  private attachI2cBus() {
+    const slaves = this.devices.filter((d): d is I2cLcd => d instanceof I2cLcd);
+    const sda = this.built.mcuPinNode.get('A4'), scl = this.built.mcuPinNode.get('A5');
+    for (const d of slaves) d.wired = sda !== undefined && scl !== undefined && sda >= 0 && scl >= 0 && this.built.nodeOf(`${d.partId}.SDA`) === sda && this.built.nodeOf(`${d.partId}.SCL`) === scl;
+    const twi = this.mcu.twi;
+    let cur: I2cLcd | null = null;
+    const later = (bits: number, cb: () => void) => this.mcu.cpu.addClockEvent(cb, Math.max(1, Math.round((bits * F_CPU) / (twi.sclFrequency || 100000))));
+    twi.eventHandler = {
+      start: () => later(1, () => twi.completeStart()),
+      stop: () => { cur = null; later(1, () => twi.completeStop()); },
+      connectToSlave: (addr: number) => { cur = slaves.find((d) => d.address === addr && d.acks()) ?? null; const ack = !!cur; later(9, () => twi.completeConnect(ack)); },
+      writeByte: (v: number) => { const ack = !!cur && cur.acks(); if (ack) cur!.write(v); later(9, () => twi.completeWrite(ack)); },
+      readByte: () => { const v = cur && cur.acks() ? cur.read() : 0xff; later(9, () => twi.completeRead(v)); },
+    };
+  }
+
+  /**
+   * Hardware SPI master (SPDR writes). avr8js models the peripheral, not the
+   * pin waveform, so bytes are delivered to shift registers whose DS/SHCP are
+   * on the same nodes as MOSI (D11) and SCK (D13); MISO reads back 0xFF.
+   */
+  private attachSpiBus() {
+    const regs = this.devices.filter((d): d is Hc595 => d instanceof Hc595);
+    const mosi = this.built.mcuPinNode.get('D11'), sck = this.built.mcuPinNode.get('D13');
+    for (const r of regs) r.spiWired = mosi !== undefined && sck !== undefined && mosi >= 0 && sck >= 0 && this.built.nodeOf(`${r.partId}.DS`) === mosi && this.built.nodeOf(`${r.partId}.SHCP`) === sck;
+    const spi = this.mcu.spi;
+    spi.onByte = (v: number) => {
+      for (const r of regs) if (r.spiWired) r.spiByte(v, spi.dataOrder === 'lsbFirst');
+      this.mcu.cpu.addClockEvent(() => spi.completeTransfer(0xff), spi.transferCycles);
+    };
+  }
+
   private applyDeviceProps(partId: string) {
     const d = this.devMap.get(partId) as any;
     const p = this.props.get(partId)!;
     if (!d) return;
     if (d instanceof Dht11Ctl) { d.temperature = Number(p.temperature); d.humidity = Number(p.humidity); }
     if (d instanceof HcSr04Ctl) d.distance = Number(p.distance);
+    if (d instanceof I2cLcd) d.address = parseInt(String(p.address ?? '0x27'), 16) || 0x27;
   }
 
   serialWrite(text: string) { this.mcu.serialWrite(text); }

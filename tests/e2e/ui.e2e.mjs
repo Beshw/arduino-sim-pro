@@ -121,6 +121,42 @@ await win.waitForTimeout(800);
 await shot('11-light-en');
 await win.evaluate(() => window.__aspSet({ theme: 'dark', lang: 'ar' }));
 
+// I2C LCD example end-to-end in the UI
+await win.click('[data-testid="ex-lcd_i2c"]');
+await win.click('[data-testid="btn-run"]');
+await win.waitForFunction(() => window.__aspState().snap?.parts?.LCD1?.lines?.[0] === 'Hello over I2C! ', null, { timeout: 120000 }).catch(() => undefined);
+s = await state();
+check('i2c-lcd-ui', s.snap?.parts?.LCD1?.lines?.[0] === 'Hello over I2C! ' && s.serial.some((l) => /0x27/.test(l)), JSON.stringify(s.snap?.parts?.LCD1?.lines));
+await shot('12-i2c-lcd');
+// 74HC595 over SPI
+await win.click('[data-testid="ex-shift595"]');
+await win.click('[data-testid="btn-run"]');
+await win.waitForFunction(() => (window.__aspState().snap?.parts?.U1?.spiBytes ?? 0) >= 2, null, { timeout: 120000 }).catch(() => undefined);
+s = await state();
+check('spi-595-ui', (s.snap?.parts?.U1?.spiBytes ?? 0) >= 2 && s.snap?.parts?.U1?.powered, `${s.snap?.parts?.U1?.hex} after ${s.snap?.parts?.U1?.spiBytes} bytes`);
+await shot('13-shift595');
+await win.click('[data-testid="btn-stop"]').catch(() => undefined);
+
+// real serial monitor against a virtual serial pair (socat), when provided
+if (process.env.ASP_TEST_PTY) {
+  const [mine, peer] = process.env.ASP_TEST_PTY.split(',');
+  await win.evaluate((p) => window.__aspActions.connectHardwareSerial(p), mine);
+  await win.waitForFunction((p) => window.__aspState().serialSource === p, mine, { timeout: 10000 }).catch(() => undefined);
+  const fd = fs.openSync(peer, 'r+');
+  fs.writeSync(fd, 'HW:READY,TEMP:21.5\n');
+  await win.waitForTimeout(800);
+  await win.fill('[data-testid="serial-input"]', 'PING');
+  await win.press('[data-testid="serial-input"]', 'Enter');
+  await win.waitForTimeout(500);
+  const buf = Buffer.alloc(64); let got = '';
+  try { const n = fs.readSync(fd, buf, 0, 64, null); got = buf.subarray(0, n).toString(); } catch { /* */ }
+  s = await state();
+  check('hardware-serial', s.serial.some((l) => l.includes('HW:READY')) && got.includes('PING'), `rx=${s.serial.at(-2)} tx→peer=${JSON.stringify(got)}`);
+  await shot('14-hardware-serial');
+  await win.evaluate(() => window.__aspActions.connectHardwareSerial('sim'));
+  fs.closeSync(fd);
+}
+
 fs.writeFileSync(path.join(out, 'e2e-results.json'), JSON.stringify({ passed: results.filter((r) => r.ok).length, total: results.length, results }, null, 2));
 await app.close();
 const failed = results.filter((r) => !r.ok);

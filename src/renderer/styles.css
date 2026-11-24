@@ -4,7 +4,8 @@
   --text: #e6edf8; --muted: #8a9bb8; --accent: #2f9bff; --accent2: #17c3d6; --ok: #2fd36b; --bad: #ff5a5a; --warn: #ffb000;
   --run: #1fb954; --grid: rgba(120, 150, 200, 0.12); --canvas: #0a1222; --grid-dot: #22314f;
   --sch-bg: #0c1527; --sch-ink: #cfe0ff; --sch-box: #101c33; --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  --r: 10px; font-family: 'Segoe UI', 'Noto Sans Arabic', Tahoma, Arial, sans-serif;
+  --r: 10px; font-family: var(--font-ui);
+  --font-ui: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif; --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 }
 :root[data-theme='light'] {
   --bg: #e8edf5; --bg2: #f1f4f9; --panel: #ffffff; --panel2: #f5f8fc; --line: #dbe2ee; --line2: #c9d3e3;
@@ -112,7 +113,7 @@ select:focus, input:focus { border-color: var(--accent); }
 .panel-foot > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-foot { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12px; }
 .diag-list { max-height: 120px; overflow-y: auto; border-top: 1px solid var(--line); direction: ltr; }
-.diag { display: flex; gap: 6px; align-items: center; width: 100%; padding: 4px 10px; background: transparent; border: 0; text-align: start; cursor: pointer; font-size: 12px; font-family: Consolas, monospace; }
+.diag { display: flex; gap: 6px; align-items: center; width: 100%; padding: 4px 10px; background: transparent; border: 0; text-align: start; cursor: pointer; font-size: 12px; font-family: var(--font-mono); }
 .diag.error { color: #ff8080; } .diag.warning { color: #ffc65a; }
 .diag:hover { background: var(--panel2); }
 .build-log { margin: 0; max-height: 180px; overflow: auto; font-size: 11px; background: #070c18; color: #a9b8d4; padding: 8px; direction: ltr; text-align: left; white-space: pre-wrap; }
@@ -130,6 +131,7 @@ select:focus, input:focus { border-color: var(--accent); }
 .view-switch button.on { border-color: var(--accent); color: var(--accent); background: #10203d; box-shadow: inset 0 0 0 1px var(--accent); }
 :root[data-theme='light'] .view-switch button.on { background: #e7f1ff; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.m-val.txt b { font-size: 20px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metric { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .m-head { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
 .m-head .ico { color: var(--c); }
@@ -173,7 +175,7 @@ select:focus, input:focus { border-color: var(--accent); }
 .wire-end { stroke: rgba(0, 0, 0, 0.4); stroke-width: 0.5; }
 .net-hl { fill: none; stroke: #ffe066; stroke-width: 1.2; pointer-events: none; }
 .pin-tip rect { fill: #0b1528; stroke: #2f9bff; stroke-width: 0.6; opacity: 0.96; }
-.pin-tip text { font-size: 7px; fill: #e6edf8; font-family: 'Segoe UI', sans-serif; }
+.pin-tip text { font-size: 7px; fill: #e6edf8; font-family: var(--font-ui); }
 .pin-tip text.v { fill: #7cf0a8; font-weight: 700; }
 .canvas-hint, .canvas-empty { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 12px; color: var(--muted); font-size: 12px; pointer-events: none; }
 .canvas-empty { bottom: auto; top: 50%; }
@@ -205,7 +207,7 @@ select:focus, input:focus { border-color: var(--accent); }
 /* ---------- serial ---------- */
 .serial { flex: 1.2; min-height: 200px; }
 .serial.tall { flex: 2; }
-.serial-out { flex: 1; overflow: auto; padding: 8px 12px; font-family: 'Cascadia Code', Consolas, monospace; font-size: 11.5px; line-height: 1.6; direction: ltr; text-align: left; background: var(--bg2); }
+.serial-out { flex: 1; overflow: auto; padding: 8px 12px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; direction: ltr; text-align: left; background: var(--bg2); }
 .sl { display: flex; gap: 12px; white-space: pre; }
 .sl .ts { color: #7f93b5; flex: none; }
 .sl.tx .tx { color: #ffc65a; }
@@ -238,7 +240,7 @@ select:focus, input:focus { border-color: var(--accent); }
 
 /* ---------- schematic / 3d ---------- */
 .schematic-wrap { flex: 1; overflow: auto; background: var(--sch-bg); min-height: 0; height: 100%; }
-.schematic-svg { display: block; margin: 10px auto; font-family: 'Segoe UI', sans-serif; }
+.schematic-svg { display: block; margin: 10px auto; font-family: var(--font-ui); }
 .sch-zoom { position: sticky; top: 6px; left: 6px; float: left; font-size: 11px; color: var(--muted); padding: 2px 6px; }
 .schematic-wrap { direction: ltr; }
 .three-host { flex: 1; width: 100%; height: 100%; min-height: 0; position: relative; }
@@ -290,7 +292,7 @@ select:focus, input:focus { border-color: var(--accent); }
 .instruments .inst-row { display: grid; grid-template-columns: 340px 1fr; gap: 8px; }
 .inst-tl { height: 420px; margin-top: 8px; }
 .dmm-sel { display: flex; gap: 10px; margin-bottom: 10px; }
-.dmm-disp { font-family: 'Cascadia Code', Consolas, monospace; font-size: 44px; color: #7cf0a8; background: #06130c; border-radius: 10px; padding: 10px 16px; text-align: right; direction: ltr; border: 1px solid #1c4a2f; }
+.dmm-disp { font-family: var(--font-mono); font-size: 44px; color: #7cf0a8; background: #06130c; border-radius: 10px; padding: 10px 16px; text-align: right; direction: ltr; border: 1px solid #1c4a2f; }
 .dmm-disp small { font-size: 16px; margin-left: 8px; color: #4fb07a; }
 .pins-table { max-height: 330px; overflow-y: auto; }
 .pins-table table, .tool-table { width: 100%; border-collapse: collapse; font-size: 12px; direction: ltr; }
@@ -343,3 +345,6 @@ select:focus, input:focus { border-color: var(--accent); }
 .tool-table td:first-child { white-space: nowrap; }
 .tool-table { table-layout: auto; }
 .tool-table td.small { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.panel-head select.live-src { border-color: var(--run); color: var(--run); }
+.file-tab .fname { direction: ltr; unicode-bidi: isolate; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

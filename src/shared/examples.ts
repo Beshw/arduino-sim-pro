@@ -285,6 +285,45 @@ void loop() {
     },
   },
   {
+    id: 'lcd_i2c', level: 2,
+    title: { ar: 'شاشة LCD بواجهة I2C', en: 'I2C LCD 16x2' },
+    description: { ar: 'ناقل I2C حقيقي على المسجل TWI: البرنامج يمسح العناوين ثم يكتب على الشاشة عبر PCF8574 بسلكين فقط (A4/A5).', en: 'Real I2C on the TWI peripheral: scans the bus, then drives the LCD through a PCF8574 using only A4/A5.' },
+    project: () => new Builder().rails()
+      .place('LCD1', 'lcd1602_i2c', 'GND', 'j', 20)
+      .wire(H('f', 20), H('BN', 21), '#222a36').wire(H('f', 21), H('BP', 22), '#ff3b3b')
+      .wire(H('f', 22), 'uno.A4', '#2f9bff').wire(H('f', 23), 'uno.A5', '#2fd36b')
+      .wire(H('TP', 1), H('BP', 1), '#ff3b3b').wire(H('TN', 3), H('BN', 3), '#222a36')
+      .build('I2C LCD', `#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  // I2C scanner: only devices that are wired and powered answer
+  for (byte addr = 1; addr < 127; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("I2C device at 0x");
+      Serial.println(addr, HEX);
+    }
+  }
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Hello over I2C!");
+}
+
+void loop() {
+  lcd.setCursor(0, 1);
+  lcd.print("Count: ");
+  lcd.print(millis() / 1000);
+  delay(250);
+}
+`),
+  },
+  {
     id: 'servo', level: 2,
     title: { ar: 'محرك سيرفو تتحكم به مقاومة متغيرة', en: 'Servo + potentiometer' },
     description: { ar: 'مكتبة Servo تولد نبضات 544-2400µs كل 20ms على D9؛ يقيس المحاكي عرض النبضة ويحرك الذراع.', en: 'Servo library emits 544–2400 µs pulses every 20 ms on D9.' },
@@ -417,6 +456,55 @@ void show(int n) {
 
 void loop() {
   for (int n = 0; n < 10; n++) { show(n); delay(600); }
+}
+`);
+    },
+  },
+  {
+    id: 'shift595', level: 3,
+    title: { ar: 'مسجل إزاحة 74HC595 عبر SPI', en: '74HC595 over SPI' },
+    description: { ar: 'عداد على شاشة 7 مقاطع عبر 3 أسلاك فقط: بايت SPI حقيقي من المسجل SPDR يُزاح إلى 74HC595 ثم يُثبَّت بنبضة D10.', en: 'A 7-segment counter on three wires: real SPDR bytes are shifted into a 74HC595 and latched by a D10 pulse.' },
+    project: () => {
+      const b = new Builder().rails();
+      b.place('U1', 'hc595', 'VCC', 'e', 3);
+      b.wire(H('a', 3), H('TP', 3), '#ff3b3b').wire(H('a', 9), H('TP', 9), '#ff3b3b') // VCC, MR high
+        .wire(H('a', 6), H('TN', 7), '#222a36').wire(H('j', 10), H('BN', 10), '#222a36') // OE low, GND
+        .wire(H('a', 5), 'uno.D11', '#2f9bff').wire(H('a', 8), 'uno.D13', '#2fd36b').wire(H('a', 7), 'uno.D10', '#ffb000')
+        .wire(H('TP', 1), H('BP', 1), '#ff3b3b').wire(H('TN', 3), H('BN', 3), '#222a36');
+      b.free('SEG1', 'seven_segment', 560, 300, { color: 'red' });
+      const q: [string, string][] = [['A', H('b', 4)], ['B', H('j', 3)], ['C', H('j', 4)], ['D', H('j', 5)], ['E', H('j', 6)], ['F', H('j', 7)], ['G', H('j', 8)]];
+      q.forEach(([seg, hole], i) => {
+        b.free(`RS${i}`, 'resistor', 430, 250 + i * 20, { ohms: 330 });
+        b.wire(hole, `RS${i}.a`, '#ff7a00').wire(`RS${i}.b`, `SEG1.${seg}`, '#ff7a00');
+      });
+      b.wire('SEG1.COM1', 'uno.GND.3', '#222a36');
+      return b.build('74HC595', `#include <SPI.h>
+
+const int LATCH_PIN = 10;  // STCP
+const byte digits[10] = {
+  0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110,
+  0b1101101, 0b1111101, 0b0000111, 0b1111111, 0b1101111
+};
+
+void show(byte pattern) {
+  digitalWrite(LATCH_PIN, LOW);
+  SPI.transfer(pattern);        // 8 bits out on MOSI (D11) / SCK (D13)
+  digitalWrite(LATCH_PIN, HIGH); // rising edge copies them to Q0..Q7
+}
+
+void setup() {
+  pinMode(LATCH_PIN, OUTPUT);
+  SPI.begin();
+  Serial.begin(9600);
+}
+
+void loop() {
+  for (int n = 0; n < 10; n++) {
+    show(digits[n]);
+    Serial.print("digit ");
+    Serial.println(n);
+    delay(500);
+  }
 }
 `);
     },

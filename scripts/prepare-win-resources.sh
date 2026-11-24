@@ -23,7 +23,8 @@ Bundled third-party tools (unmodified binaries unless noted):
 - arduino-cli 1.3.1 (GPL-3.0)
 - ngspice 45.2 (BSD-3/modified), cross-compiled for Windows x64 (MinGW-w64), with libstdc++/libgcc runtime (GPL + GCC runtime exception)
 - ArduinoCore-avr 1.8.6 (LGPL-2.1)
-- Servo / LiquidCrystal / DHT compatible libraries written for this project (MIT)
+- Servo / LiquidCrystal / LiquidCrystal_I2C / DHT compatible libraries written for this project (MIT)
+- Fonts embedded in the UI: IBM Plex Sans Arabic and JetBrains Mono (SIL Open Font License 1.1)
 TXT
 # sanity: every required file exists
 for f in tools/avr-gcc/bin/avr-gcc.exe tools/avr-gcc/bin/avr-g++.exe tools/avr-gcc/bin/avr-objcopy.exe tools/avr-gcc/bin/avr-size.exe tools/avr-gcc/bin/avr-gcc-ar.exe \

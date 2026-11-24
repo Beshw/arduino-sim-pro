@@ -192,6 +192,21 @@ export const PARTS: PartDef[] = [
     props: [],
   },
   {
+    type: 'lcd1602_i2c', name: { ar: 'شاشة LCD 16x2 بواجهة I2C', en: 'LCD 16x2 I2C (PCF8574)' }, category: 'display', w: 30, h: 10,
+    pins: ['GND', 'VCC', 'SDA', 'SCL'].map((l, i) => ({ id: l, label: l, x: i * 10, y: 0 })),
+    props: [{ key: 'address', label: { ar: 'عنوان I2C', en: 'I2C address' }, type: 'select', default: '0x27', options: [{ value: '0x27', label: '0x27 (PCF8574)' }, { value: '0x3F', label: '0x3F (PCF8574A)' }] }],
+    description: { ar: 'تتصل عبر سلكين فقط: SDA إلى A4 وSCL إلى A5. استخدم مكتبة LiquidCrystal_I2C.', en: 'Two-wire bus: SDA to A4, SCL to A5. Use the LiquidCrystal_I2C library.' },
+  },
+  {
+    type: 'hc595', name: { ar: 'مسجل إزاحة 74HC595', en: '74HC595 shift register' }, category: 'semiconductor', w: 70, h: 30,
+    pins: [
+      ...['VCC', 'Q0', 'DS', 'OE', 'STCP', 'SHCP', 'MR', 'Q7S'].map((l, i) => ({ id: l, label: l, x: i * 10, y: 0 })),
+      ...['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'GND'].map((l, i) => ({ id: l, label: l, x: i * 10, y: 30 })),
+    ],
+    props: [],
+    description: { ar: 'يحوّل 3 منافذ إلى 8 مخارج. يعمل مع shiftOut() ومع SPI (DS←D11، SHCP←D13).', en: 'Turns 3 pins into 8 outputs. Works with shiftOut() and hardware SPI (DS←D11, SHCP←D13).' },
+  },
+  {
     type: 'seven_segment', name: { ar: 'شاشة 7 مقاطع', en: '7-segment (CC)' }, category: 'display', w: 40, h: 30,
     pins: [
       ...['G', 'F', 'COM1', 'A', 'B'].map((l, i) => ({ id: l, label: l, x: i * 10, y: 0 })),

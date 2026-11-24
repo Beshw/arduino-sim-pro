@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { removeTempDir } from './tempdir';
 import { spawn } from 'node:child_process';
 import { resolveTool, getResourcesRoot } from './toolchain';
 import { compileSketch } from './compiler';
@@ -98,5 +99,5 @@ export async function upload(body: any, confirmed: boolean) {
     });
     const verified = /bytes of flash verified|flash verified/i.test(out.out);
     return { ok: out.code === 0 && verified, stage: 'upload', message: out.code === 0 ? (verified ? 'Upload complete and verified' : 'avrdude finished without verification message') : 'Upload failed', log: out.out.slice(-12000), size: build.size, sha256: build.sha256 };
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTempDir(dir); }
 }

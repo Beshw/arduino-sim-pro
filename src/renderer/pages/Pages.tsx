@@ -208,7 +208,7 @@ export function ToolsPage() {
           </table>
           {pf && <div className="ready-row">{Object.entries(pf.ready ?? {}).map(([k, v]) => <span key={k} className={'pill ' + (v ? 'ok' : 'bad')}>{k}</span>)}</div>}
           {st && <div className="muted small">v{st.version} · {st.platform}/{st.arch} · HTTP API {st.httpApiPort ? `127.0.0.1:${st.httpApiPort}` : '—'}</div>}
-          <p className="muted small">{pf?.note}</p>
+          <p className="muted small">{pf ? t('tools_note') : null}</p>
         </div>
         <div className="card">
           <h3>{lang === 'ar' ? 'اختبارات القبول (أدلة فعلية)' : 'Acceptance suite (real evidence)'}</h3>

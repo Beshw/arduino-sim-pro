@@ -144,7 +144,7 @@ function buildScene(project: Project, scene: THREE.Group, dyn: Dyn[]) {
         dyn.push({ update: (snap) => { const now = performance.now(); const rpm = Number(snap?.parts?.[part.id]?.rpm ?? 0); ang += (rpm / 60) * 2 * Math.PI * ((now - lt) / 1000) * 0.15; lt = now; fg.rotation.y = ang; } });
         break;
       }
-      case 'lcd1602': {
+      case 'lcd1602': case 'lcd1602_i2c': {
         const pcb = box(174 * S, 0.2, 84 * S, mat(0x126c3a)); g.add(at(pcb, 75, 2.2, -44));
         const frame = box(154 * S, 0.5, 56 * S, mat(0x1a1d22)); g.add(at(frame, 75, 2.5, -46));
         const { tex, canvas } = canvasTexture(512, 160, () => undefined);
@@ -164,10 +164,10 @@ function buildScene(project: Project, scene: THREE.Group, dyn: Dyn[]) {
       }
       default: {
         // generic component block (sensors, ICs, supplies)
-        const colors: Record<string, number> = { dht11: 0x2f7fd6, hcsr04: 0x1a4f9c, tmp36: 0x1c1e22, npn: 0x1c1e22, ntc: 0x2b6fd8, ldr: 0xd9902f, capacitor: 0x2747a6, diode: 0x1c1e22, inductor: 0x3f8f4d, switch: 0x1f2a3a, dc_supply: 0x1e2530, seven_segment: 0x202328 };
+        const colors: Record<string, number> = { dht11: 0x2f7fd6, hcsr04: 0x1a4f9c, tmp36: 0x1c1e22, npn: 0x1c1e22, ntc: 0x2b6fd8, ldr: 0xd9902f, capacitor: 0x2747a6, diode: 0x1c1e22, inductor: 0x3f8f4d, switch: 0x1f2a3a, dc_supply: 0x1e2530, seven_segment: 0x202328, hc595: 0x1c1e22 };
         const sizes: Record<string, [number, number, number, number, number]> = { // w,h,d, cx, cz (px)
           dht11: [32, 2, 38, 10, -25], hcsr04: [82, 0.4, 38, 15, -25], tmp36: [20, 1.6, 6, 10, -6], npn: [20, 1.6, 6, 10, -6], ntc: [12, 1, 12, 5, -12], ldr: [14, 0.6, 14, 5, -14],
-          capacitor: [14, 2.2, 14, 5, -18], diode: [16, 0.8, 9, 15, 0], inductor: [20, 1.1, 11, 15, 0], switch: [32, 1, 12, 10, -10], dc_supply: [40, 2.5, 36, 10, -24], seven_segment: [52, 1.2, 28, 20, 15],
+          capacitor: [14, 2.2, 14, 5, -18], diode: [16, 0.8, 9, 15, 0], inductor: [20, 1.1, 11, 15, 0], switch: [32, 1, 12, 10, -10], dc_supply: [40, 2.5, 36, 10, -24], seven_segment: [52, 1.2, 28, 20, 15], hc595: [78, 1.4, 22, 35, 15],
         };
         const sz = sizes[part.type] ?? [20, 1, 10, 10, 0];
         const b = box(sz[0] * S, sz[1], sz[2] * S, mat(colors[part.type] ?? 0x445566)); g.add(at(b, sz[3], 0.9 + sz[1] / 2, sz[4]));

@@ -16,6 +16,7 @@ import { buildCircuit, setMcuPin } from '../../shared/circuit/models';
 import { generateSpice } from '../../shared/spice/spice';
 import { exportVcd, importVcd, parseGpioCsv, toGpioCsv, validateBlink, Edge } from '../../shared/signals/signals';
 import { resolveTool } from './toolchain';
+import { EXAMPLES } from '../../shared/examples';
 
 type Status = 'pass' | 'fail' | 'skip';
 interface Check { id: string; title: string; status: Status; detail: string; evidence?: unknown; durationMs: number }
@@ -103,8 +104,8 @@ export async function runAcceptance(outDir: string, opts: { build?: Record<strin
     const lines = r.diagnostics.filter((d) => d.file === 'sketch.ino' && d.severity === 'error').map((d) => d.line);
     return { status: !r.ok && lines.includes(2) || lines.includes(3) ? 'pass' : 'fail', detail: JSON.stringify(r.diagnostics.slice(0, 4)) };
   });
-  await check(compileChecks, 'compile-libraries', 'Bundled libraries (Servo, LiquidCrystal, DHT) are found and linked', async () => {
-    const code = '#include <Servo.h>\n#include <LiquidCrystal.h>\n#include <DHT.h>\nServo s; LiquidCrystal lcd(12, 11, 5, 4, 3, 2); DHT dht(7, DHT11);\nvoid setup(){ s.attach(9); lcd.begin(16, 2); lcd.print("ok"); dht.begin(); }\nvoid loop(){ s.write((int)dht.readTemperature()); delay(100); }\n';
+  await check(compileChecks, 'compile-libraries', 'Bundled libraries (Servo, LiquidCrystal, LiquidCrystal_I2C, DHT, SPI) are found and linked', async () => {
+    const code = '#include <Servo.h>\n#include <LiquidCrystal.h>\n#include <LiquidCrystal_I2C.h>\n#include <SPI.h>\n#include <DHT.h>\nServo s; LiquidCrystal lcd(12, 11, 5, 4, 3, 2); LiquidCrystal_I2C lcd2(0x27, 16, 2); DHT dht(7, DHT11);\nvoid setup(){ s.attach(9); lcd.begin(16, 2); lcd.print("ok"); lcd2.init(); lcd2.print("ok"); SPI.begin(); SPI.transfer(1); dht.begin(); }\nvoid loop(){ s.write((int)dht.readTemperature()); delay(100); }\n';
     const r = await compileSketch(code);
     return { status: r.ok && !!r.hex ? 'pass' : 'fail', detail: r.ok ? `flash ${r.size?.flash} B, libraries linked` : `${r.message}: ${(r.diagnostics[0]?.message ?? r.log ?? '').slice(0, 300)}` };
   });
@@ -173,6 +174,28 @@ export async function runAcceptance(outDir: string, opts: { build?: Record<strin
     const last = (s: string) => Number(s.trim().split(/\r?\n/).pop());
     const v1 = last(s1), v2 = last(s2);
     return { status: Math.abs(v1 - 256) <= 3 && Math.abs(v2 - 767) <= 3 ? 'pass' : 'fail', detail: `analogRead at 25 % = ${v1} (expected ≈256), at 75 % = ${v2} (expected ≈767)` };
+  });
+  await check(execChecks, 'i2c-lcd', 'I2C (TWI) bus: scanner finds only the wired PCF8574 at 0x27 and the LCD shows the text', async () => {
+    const p = validateProject(EXAMPLES.find((e) => e.id === 'lcd_i2c')!.project());
+    const c = await compileSketch(p.code);
+    if (!c.ok || !c.hex) return { status: 'fail', detail: c.message };
+    const sim = new CoSimulation(p, parseIntelHex(c.hex).image);
+    sim.run(1.5);
+    const o: any = sim.snapshot().parts.LCD1;
+    const found = sim.serialOutput.match(/I2C device at 0x[0-9A-F]+/g) ?? [];
+    const ok = found.length === 1 && found[0].endsWith('0x27') && o.lines?.[0] === 'Hello over I2C! ' && /^Count: 1/.test(o.lines?.[1] ?? '');
+    return { status: ok ? 'pass' : 'fail', detail: `scan: ${JSON.stringify(found)}; LCD: ${JSON.stringify(o.lines)}; ${o.i2cBytes} I2C bytes` };
+  });
+  await check(execChecks, 'spi-595', 'SPI bus: SPDR byte shifted into a 74HC595, latched by D10, lights the 7-segment digit', async () => {
+    const p = validateProject(EXAMPLES.find((e) => e.id === 'shift595')!.project());
+    const c = await compileSketch(p.code);
+    if (!c.ok || !c.hex) return { status: 'fail', detail: c.message };
+    const sim = new CoSimulation(p, parseIntelHex(c.hex).image);
+    sim.run(1.15); sim.snapshot(); sim.run(0.05);
+    const snap: any = sim.snapshot();
+    const lit = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].filter((g) => Number(snap.parts.SEG1?.avg?.['current_' + g] ?? 0) > 0.002).join('');
+    const ok = snap.parts.U1.latch === 0x5b && lit === 'ABDEG';
+    return { status: ok ? 'pass' : 'fail', detail: `latch ${snap.parts.U1.hex} after ${snap.parts.U1.spiBytes} SPI bytes; lit segments ${lit} (digit 2 = ABDEG)` };
   });
   reports.push(mk('execution', execChecks));
 

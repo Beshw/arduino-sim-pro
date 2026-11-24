@@ -1,0 +1,31 @@
+// Capture screenshots of every main screen. Usage: xvfb-run -a node tests/e2e/screens.mjs outDir [exe]
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { _electron: electron } = require('playwright');
+import fs from 'node:fs';
+import path from 'node:path';
+const out = path.resolve(process.argv[2]); const exe = process.argv[3];
+fs.mkdirSync(out, { recursive: true });
+const flags = ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--force-device-scale-factor=1.5'];
+const app = await electron.launch({ executablePath: exe ?? path.resolve('node_modules/electron/dist/electron'), args: exe ? flags : [...flags, '.'], env: { ...process.env, ASP_CACHE_DIR: path.join(out, '.cache') }, timeout: 60000 });
+const win = await app.firstWindow();
+await win.setViewportSize({ width: 1600, height: 940 }).catch(() => undefined);
+await win.waitForSelector('[data-testid="btn-run"]', { timeout: 30000 });
+const set = (p) => win.evaluate((p) => window.__aspSet(p), p);
+const shot = async (n, wait = 700) => { await win.waitForTimeout(wait); await win.screenshot({ path: path.join(out, n + '.png') }); console.log('shot', n); };
+await win.click('[data-testid="ex-demo"]');
+await win.click('[data-testid="btn-run"]');
+await win.waitForFunction(() => window.__aspState().simState === 'running', null, { timeout: 120000 });
+await win.waitForFunction(() => window.__aspState().snap?.timeS > 2, null, { timeout: 30000 });
+await set({ page: 'home', centerTab: 'sim', simView: 'bb' }); await shot('01-main-breadboard');
+await set({ simView: '3d' }); await shot('02-main-3d', 1500);
+await set({ simView: 'sch' }); await shot('03-main-schematic-view');
+await set({ simView: 'bb', centerTab: 'wiring' }); await shot('04-wiring-diagram');
+await set({ centerTab: 'schematic' }); await shot('05-schematic');
+await set({ centerTab: 'timeline' }); await shot('06-timeline', 1500);
+await set({ centerTab: 'sim', page: 'editor' }); await shot('07-editor');
+await set({ page: 'circuit' }); await shot('08-circuit-board');
+for (const [n, p] of [['09-parts', 'parts'], ['10-library', 'library'], ['11-lessons', 'lessons'], ['12-projects', 'projects'], ['13-instruments', 'instruments'], ['14-tools', 'tools'], ['15-settings', 'settings']]) { await set({ page: p }); await shot(n); }
+await set({ page: 'home', lang: 'en', theme: 'light' }); await shot('16-light-english');
+await set({ page: 'tools' }); await shot('17-tools-light-english');
+await app.close();

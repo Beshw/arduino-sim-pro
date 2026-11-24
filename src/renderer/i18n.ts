@@ -22,6 +22,7 @@ const S = {
   nav_projects: { ar: 'المشاريع', en: 'Projects' },
   nav_instruments: { ar: 'أجهزة القياس', en: 'Instruments' },
   nav_tools: { ar: 'الأدوات', en: 'Tools' },
+  tools_note: { ar: 'توفر الأدوات شرط مسبق فقط ولا يثبت نجاح المحاكاة. شغّل اختبارات القبول للحصول على دليل فعلي.', en: 'Tool availability is a prerequisite only; it does not prove that a simulation succeeded. Run the acceptance suite for evidence.' },
   nav_settings: { ar: 'الإعدادات', en: 'Settings' },
   chooseBoard: { ar: 'اختر لوحة أردوينو', en: 'Choose board' },
   quickParts: { ar: 'المكونات السريعة', en: 'Quick components' },

@@ -190,6 +190,12 @@ function makeRuntime(part: PartInstance, c: Circuit, n: (pin: string) => number,
       c.add({ kind: 'N', name: `${id}:drv`, a: n('data'), b: n('gnd'), g: 1e-9, i: 0 });
       return { part, apply: () => {}, read: () => ({}) };
     }
+    case 'hc595': {
+      c.add({ kind: 'R', name: `${id}:iq`, a: n('VCC'), b: n('GND'), r: 100000 });
+      for (const pin of ['DS', 'OE', 'STCP', 'SHCP', 'MR']) c.add({ kind: 'R', name: `${id}:in_${pin}`, a: n(pin), b: n('GND'), r: 1e7 });
+      for (const q of ['Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q7S']) c.add({ kind: 'N', name: `${id}:${q}`, a: n(q), b: n('GND'), g: 1e-9, i: 0 });
+      return { part, apply: () => {}, read: () => ({}) };
+    }
     case 'hcsr04': {
       c.add({ kind: 'R', name: `${id}:iq`, a: n('vcc'), b: n('gnd'), r: 330 }); // ~15 mA
       c.add({ kind: 'R', name: `${id}:trigin`, a: n('trig'), b: n('gnd'), r: 1e6 });

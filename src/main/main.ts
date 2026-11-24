@@ -11,7 +11,7 @@ import { setResourcesRoot } from './services/toolchain';
 import { startHttpServer } from './services/http';
 import { killAllChildren } from './services/native';
 import { runAcceptance } from './services/acceptance';
-import type http from 'node:http';
+import http from 'node:http';
 
 const isDev = !app.isPackaged && process.env.ASP_DEV === '1';
 setResourcesRoot(app.isPackaged ? path.join(process.resourcesPath) : path.resolve(__dirname, '..', '..', 'build-resources', process.platform === 'win32' ? 'win' : 'linux'));
@@ -145,7 +145,16 @@ ipcMain.handle('backup', async (_e, content: string) => {
 // ---------------- lifecycle ----------------
 async function selfTest(outDir: string) {
   await startApi();
-  const status = await fetch(`http://127.0.0.1:${apiPort}/api/status`).then((r) => r.json()).catch((e) => ({ ok: false, message: String(e) }));
+  // node:http rather than fetch(): it is the plainest loopback client and also works under Wine
+  const status: any = await new Promise((resolve) => {
+    if (!apiPort) { resolve({ ok: false, message: 'HTTP API disabled or failed to start' }); return; }
+    const req = http.get({ host: '127.0.0.1', port: apiPort, path: '/api/status', headers: { host: `127.0.0.1:${apiPort}` }, timeout: 10000 }, (res) => {
+      let d = ''; res.setEncoding('utf8'); res.on('data', (c) => (d += c));
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve({ ok: false, message: 'Invalid JSON: ' + String(e) }); } });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', (e) => resolve({ ok: false, message: String(e) }));
+  });
   const r = await runAcceptance(outDir, { build: { ...buildInfo(), httpApiPort: apiPort, httpStatus: status } });
   fs.writeFileSync(path.join(outDir, 'http-status.json'), JSON.stringify(status, null, 2));
   console.log(JSON.stringify(r.summary, null, 2));

@@ -17,7 +17,7 @@ import { checkTopology } from '../../shared/circuit/netlist';
 import { generateSpice } from '../../shared/spice/spice';
 import { exportVcd, importVcd, parseGpioCsv, pinMetrics, toGpioCsv, validateBlink, Edge } from '../../shared/signals/signals';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 export const APP_ID = 'arduino-simulator-pro';
 
 const sha = (s: string | Buffer) => crypto.createHash('sha256').update(s).digest('hex');
@@ -39,9 +39,10 @@ export function preflight() {
     const r = resolveTool(n);
     let version: string | null = null;
     if (r.path && ['avr-gcc', 'avrdude', 'arduino-cli', 'ngspice'].includes(n)) {
-      const args = n === 'avrdude' ? ['-?'] : n === 'arduino-cli' ? ['version'] : n === 'ngspice' ? ['--version'] : ['--version'];
+      const args = n === 'avrdude' ? ['-?'] : n === 'arduino-cli' ? ['version'] : n === 'ngspice' ? ['--version'] : ['-mmcu=atmega328p', '--version'];
       const pv = probeVersion(r.path, args);
-      version = (pv.output.split('\n').find((l) => /\d+\.\d+/.test(l)) ?? pv.output.split('\n')[0] ?? '').trim().slice(0, 160) || null;
+      const lines = pv.output.split('\n').map((l) => l.replace(/^[*\s]+/, '').trim()).filter(Boolean);
+      version = (lines.find((l) => /version/i.test(l) && /\d+\.\d+/.test(l)) ?? lines.find((l) => /\d+(\.\d+)?/.test(l) && !/error|usage|override/i.test(l)) ?? lines[0] ?? '').slice(0, 160) || null;
     }
     tools[n] = { ...r, version };
   }

@@ -32,6 +32,8 @@ export interface AppState {
   circuitStale: boolean;
   modal: null | 'help' | 'upload';
   showTimestamps: boolean;
+  /** 'sim' = virtual board, otherwise the real serial port path (COM3, /dev/ttyACM0) */
+  serialSource: string;
   baud: number;
 }
 
@@ -48,7 +50,7 @@ let state: AppState = {
   past: [], future: [], selection: null,
   simState: 'idle', simError: null, rt: 0, speed: 1,
   compile: null, snap: null, serial: [], serialPartial: '',
-  wireColor: '#2f9bff', toast: null, circuitStale: false, modal: null, showTimestamps: true, baud: 9600,
+  wireColor: '#2f9bff', toast: null, circuitStale: false, modal: null, showTimestamps: true, serialSource: 'sim', baud: 9600,
 };
 const listeners = new Set<() => void>();
 
