@@ -42,7 +42,7 @@ const S = {
   view3d: { ar: 'عرض ثلاثي الأبعاد', en: '3D view' },
   viewBB: { ar: 'لوحة التجارب (Breadboard)', en: 'Breadboard' },
   viewSch: { ar: 'المخطط التخطيطي', en: 'Schematic' },
-  serial: { ar: 'المراقب التسلسلي (Serial Monitor)', en: 'Serial Monitor' },
+  serial: { ar: 'المراقب التسلسلي', en: 'Serial Monitor' },
   clear: { ar: 'مسح', en: 'Clear' },
   autoscroll: { ar: 'تحديث تلقائي', en: 'Autoscroll' },
   send: { ar: 'إرسال', en: 'Send' },

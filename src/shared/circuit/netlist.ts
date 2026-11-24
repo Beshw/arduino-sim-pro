@@ -123,7 +123,7 @@ export function checkTopology(project: Project, nl: Netlist = buildNetlist(proje
       });
       return others.length === 0;
     });
-    const optional = new Set(part.type === 'lcd1602' ? ['D0', 'D1', 'D2', 'D3', 'A', 'K'] : part.type === 'button' ? ['1b', '2b', '1a', '2a'] : part.type === 'seven_segment' ? ['DP', 'COM2', 'COM1'] : part.type === 'switch' ? ['c1', 'c2'] : []);
+    const optional = new Set(part.type === 'lcd1602' ? ['D0', 'D1', 'D2', 'D3', 'A', 'K'] : part.type === 'button' ? ['1b', '2b', '1a', '2a'] : part.type === 'seven_segment' ? ['DP', 'COM2', 'COM1'] : part.type === 'switch' ? ['c1', 'c2'] : part.type === 'hc595' ? ['Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q7S'] : []);
     const realUnconnected = unconnected.filter((u) => !optional.has(u.pin.id));
     if (part.type === 'button') {
       const sides = new Set(pinNets.filter((pn) => !unconnected.includes(pn)).map((pn) => pn.pin.id[0]));

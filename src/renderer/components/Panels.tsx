@@ -276,7 +276,7 @@ export function SerialMonitor({ tall = false }: { tall?: boolean }) {
         <select value={baud} onChange={(e) => { setState({ baud: Number(e.target.value) }); if (getState().serialSource !== 'sim') A.connectHardwareSerial(getState().serialSource); }} title="baud">
           {[300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map((b) => <option key={b} value={b}>{b} baud</option>)}
         </select>
-        <button className="btn sm" onClick={A.clearSerial}><Icon name="trash" size={14} /> {t('clear')}</button>
+        <button className="btn sm icon-only" onClick={A.clearSerial} title={t('clear')} aria-label={t('clear')}><Icon name="trash" size={14} /></button>
       </div>
       <div className="serial-out" ref={box} data-testid="serial-out">
         {serial.map((l, i) => (

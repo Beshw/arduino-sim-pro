@@ -348,3 +348,7 @@ select:focus, input:focus { border-color: var(--accent); }
 
 .panel-head select.live-src { border-color: var(--run); color: var(--run); }
 .file-tab .fname { direction: ltr; unicode-bidi: isolate; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.serial .panel-head { flex-wrap: nowrap; gap: 6px; }
+.serial .panel-head b { white-space: nowrap; }
+.serial .panel-head select { min-width: 0; max-width: 132px; padding-inline: 6px; }
+.btn.icon-only { padding-inline: 7px; }
